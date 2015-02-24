@@ -32,6 +32,8 @@ unsigned int readAdaptors(const char *fileName, char names[MAX_ADAPTORS][MAX_LEN
     while( !feof(file) && num<MAX_ADAPTORS && 
             fscanf(file, format, names[num], bases[num])==2 ) num++;
 
+    fclose(file);
+
     if( num == MAX_ADAPTORS )
         printf("Warning: only first %d adaptors are to be processed\n",num);
 
@@ -46,8 +48,8 @@ unsigned long long sequence2number(const char *sequence, unsigned short length){
     // ascii codes of the symbols:
     //  T:  84, G: 71, A:65, C:67
     //  t: 116, g:103, a:97, c:99
-    // construct the look-up table symbolic code -> a number
-    const static unsigned short ascii2num[128] = {
+    // construct the look-up table symbolic code -> a digit
+    const static unsigned short ascii2digit[128] = {
         // assign each symbol with an unique number from 0 to 3
         #define T 0
         #define G 1
@@ -79,11 +81,29 @@ unsigned long long sequence2number(const char *sequence, unsigned short length){
     // calculating the code number
     unsigned long long retval = 0;
     for(size_t pos=0,order=0; pos<length; pos++,order+=2)
-        retval += (unsigned long long)( ascii2num[(unsigned short)(sequence[pos])] ) << order;
+        retval += (unsigned long long)( ascii2digit[(unsigned short)(sequence[pos])] ) << order;
 
     // beware: sequence with 'T' symbol(s) in the end converted to the same number as sequence without these 'T's
     //  hence, always keep track of the sequence's length when use result of this function
     return retval;
+}
+
+// reverse function
+const char* number2sequence(unsigned long long number, unsigned short length){
+
+    if( length > 32 ) return 0;
+
+    static char buffer[32];
+    bzero(buffer,sizeof(buffer));
+
+    // construct the look-up table digit -> symbolic code
+    const static char digit2ascii[4] = {'T','G','A','C'};
+
+    // decoding the number into a sequence
+    for(size_t order=0,pos=0; pos<length; pos++,order+=2)
+        buffer[pos] = digit2ascii[ (number>>order)&0x3 ];
+
+    return buffer;
 }
 
 
@@ -109,9 +129,9 @@ public:
         retval = data[block] >> (index*2);
         // see if we need to take the rest from next element
         if( nLeft>0 )
-            retval |= (data[block+1]&((0x1<<(nLeft*2))-1)) << ((symbolsInOneElement-index)*2);
+            retval |= (data[block+1]&(((unsigned long long)(0x1)<<(nLeft*2))-1)) << ((symbolsInOneElement-index)*2);
         else
-            retval &= (0x1<<(width*2)) - 1;
+            retval &= ((unsigned long long)(0x1)<<(width*2)) - 1;
 
         return retval;
     }
@@ -220,9 +240,10 @@ public:
         delete [] nCollisions;
     }
 };
+
 #undef MAX_COLLISIONS
 #undef BUCKETS
-
+/*
 #include <endian.h>
 #include <stdint.h>
 
@@ -408,3 +429,4 @@ char* readSFFrecord(FILE *sff_fp){
 
 return bases;
 }
+*/
