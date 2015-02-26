@@ -1,0 +1,214 @@
+#ifndef TOOLBOX_H
+#define TOOLBOX_H
+#include <string.h>  // bzero,strlen 
+
+// Maximum length of the adaptor name and the coding sequence
+#define MAX_ADAPTORS (128)
+#define MAX_LENGTH   (128)
+
+// A colisionless hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
+unsigned long long sequence2number(const char *sequence, unsigned short length){
+    if( length > 32 ) return 0;
+    // ascii codes of the symbols:
+    //  T:  84, G: 71, A:65, C:67
+    //  t: 116, g:103, a:97, c:99
+    // construct the look-up table symbolic code -> a digit
+    const static unsigned short ascii2digit[128] = {
+        // assign each symbol with an unique number from 0 to 3
+        #define T 0
+        #define G 1
+        #define A 2
+        #define C 3
+        #define t 0
+        #define g 1
+        #define a 2
+        #define c 3
+        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,A,0,C,0,0, 0,G,0,0,0,0,0,0,0,0,
+        0,0,0,0,T,0,0,0,0,0, 0,0,0,0,0,0,0,a,0,c,
+        0,0,0,g,0,0,0,0,0,0, 0,0,0,0,0,0,t,0,0,0,
+        0,0,0,0,0,0,0,0
+        #undef c
+        #undef a
+        #undef g
+        #undef t
+        #undef C
+        #undef A
+        #undef G
+        #undef T
+    };
+    // remark about safety: if ever we encounter an unknown (not one of the four) symbol, it'll be considered symbol 'T' 
+    //  although this wouldn't make much sence, we would at least never get an overflow
+
+    // calculating the code number
+    unsigned long long retval = 0;
+    for(size_t pos=0,order=0; pos<length; pos++,order+=2)
+        retval += (unsigned long long)( ascii2digit[(unsigned short)(sequence[pos])] ) << order;
+
+    // beware: sequence with 'T' symbol(s) in the end converted to the same number as sequence without these 'T's
+    //  hence, always keep track of the sequence's length when use result of this function
+    return retval;
+}
+
+// reverse function
+const char* number2sequence(unsigned long long number, unsigned short length){
+
+    if( length > 32 ) return 0;
+
+    static char buffer[32];
+    bzero(buffer,sizeof(buffer));
+
+    // construct the look-up table digit -> symbolic code
+    const static char digit2ascii[4] = {'T','G','A','C'};
+
+    // decoding the number into a sequence
+    for(size_t order=0,pos=0; pos<length; pos++,order+=2)
+        buffer[pos] = digit2ascii[ (number>>order)&0x3 ];
+
+    return buffer;
+}
+
+
+
+// Helper class to scan over the sequence in numeric representation
+class NumericSequence {
+private:
+    unsigned long long *data;   // numeric representation of the sequence
+    size_t size, length;        // size of the array and length of the original symbolic sequence
+    const static unsigned symbolsInOneElement; // number of symbols coded by a single element of the numeric array
+
+public:
+    // random access view; start and width are measured in symbols
+    unsigned long long view(size_t start, size_t width) const {
+        unsigned long long retval = 0;
+        // check boundaries for start and width arguments
+        if( start >= length || width > symbolsInOneElement ) return retval;
+        // identify element in the array, relevant part of the element, and spill over to the next element
+        size_t block = start / symbolsInOneElement;
+        size_t index = start % symbolsInOneElement;
+        long   nLeft = index + width - symbolsInOneElement;
+        // select the codes
+        retval = data[block] >> (index*2);
+        // see if we need to take the rest from next element
+        if( nLeft>0 )
+            retval |= (data[block+1]&(((unsigned long long)(0x1)<<(nLeft*2))-1)) << ((symbolsInOneElement-index)*2);
+        else
+            retval &= ((unsigned long long)(0x1)<<(width*2)) - 1;
+
+        return retval;
+    }
+
+    // construct numeric sequence from a symbolic sequence
+    NumericSequence(const char *symbolicSequence){
+        // allocate data array for the numeric sequence
+        length = strlen(symbolicSequence);
+        size   = length/symbolsInOneElement + 1;
+        data   = new unsigned long long [size+1];
+        // convert the symbolic sequence into the numeric sequence and store it in the array
+        const char *ptr = symbolicSequence;
+        for(size_t block = 0; block < size-1; block++){
+            data[block] = sequence2number(ptr,symbolsInOneElement);
+            ptr += symbolsInOneElement;
+        }
+        data[size-1] = sequence2number(ptr, length - (ptr-symbolicSequence));
+        data[size]   = 0;
+    }
+    // copying constructor is a "must have thing" whenever objects owns dynamically allocated data
+    NumericSequence(const NumericSequence& src){
+        length = src.length;
+        size   = src.size;
+        data   = new unsigned long long [size];
+        memcpy( data, src.data, sizeof(unsigned long long)*size );
+    }
+    // clean up
+    ~NumericSequence(void){ delete [] data; }
+};
+const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)*4;
+
+
+
+// Let us build a classical hash function around '%' operator and construct a look-up table
+#define BUCKETS (104743)      // a moderate size prime number
+#define MAX_COLLISIONS (10)   // allow up to 10 collisions
+class LookUpTable {
+private:
+    unsigned long long values [MAX_ADAPTORS+1];  // original values; indexing starts from 1 
+    size_t             lengths[MAX_ADAPTORS+1];  // we should also carry around the length of original sequence in case it was ending with 'T's
+    size_t **table; //[BUCKETS][MAX_COLLISIONS]; // look-up table; stores 0 for empty buckets or an index of a potential match for a given hash value
+    size_t  *nCollisions; //[BUCKETS];           // number of collisions (should mostly be 0)
+
+public:
+    // performance
+    size_t countCollisions(void) const {
+        size_t retval = 0;
+        for(size_t bucket=0; bucket<BUCKETS; bucket++) retval += nCollisions[bucket];
+        return retval;
+    }
+
+    // quick search function returns MAX_ADAPTORS if requested number is not among the original values
+    size_t find(unsigned long long number, size_t length) const {
+        // following two lines is as far as we get most of the times
+        size_t bucket = number % BUCKETS;
+        if( table[bucket][0] == 0 ) return MAX_ADAPTORS;
+
+        // or we may have found a potential match; check if it indeed the case
+        size_t matchIndex = MAX_ADAPTORS;
+
+        for(size_t col=0; col <= nCollisions[bucket] && matchIndex == MAX_ADAPTORS; col++)
+            if( number == values [ table[bucket][col] ] &&
+                length == lengths[ table[bucket][col] ] )
+                matchIndex = table[bucket][col];
+
+        // if match is found make the index starting from 0
+        if( matchIndex != MAX_ADAPTORS ) matchIndex--; 
+
+        return matchIndex;
+    }
+
+    LookUpTable(const char keys[MAX_ADAPTORS][MAX_LENGTH]){
+        // initialize static members
+        bzero(values,  sizeof(values));
+        bzero(lengths, sizeof(lengths));
+
+        // allocate and initialize dynamic tables
+        nCollisions = new size_t [BUCKETS];
+        bzero(nCollisions, sizeof(size_t)*BUCKETS);
+
+        table = new size_t* [BUCKETS];
+        for(size_t k=0; k<BUCKETS; k++){
+            table[k] = new size_t [MAX_COLLISIONS];
+            bzero(table[k], sizeof(size_t)*MAX_COLLISIONS);
+        }
+
+        // Build hash values for the adaptors
+        for(size_t k=0; k<MAX_ADAPTORS; k++){
+            size_t length = strlen( keys[k] );
+            if( length > 0 ){
+                lengths[k+1] = length;
+                values [k+1] = sequence2number(keys[k],length);
+                size_t bucket = values[k+1] % BUCKETS;
+                size_t collision = 0;
+                while( table[bucket][collision] ) collision++;
+                table[bucket][collision] = k+1;
+                nCollisions[bucket] = collision;
+            }
+        }
+    }
+
+    ~LookUpTable(void){
+        for(size_t k=0; k<MAX_ADAPTORS; k++)
+            delete [] table[k];
+        delete [] table;
+        delete [] nCollisions;
+    }
+};
+
+#undef MAX_COLLISIONS
+#undef BUCKETS
+
+//#undef MAX_ADAPTORS
+//#undef MAX_LENGTH
+
+#endif
