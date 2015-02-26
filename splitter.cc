@@ -7,8 +7,8 @@
 // time for i in `cat ionXpress_barcode.txt | awk '{print $2}'`; do echo $i; grep $i data.txt | wc; done
 
 // Input file names
-const char *inputFileName   = "input.sff";
-const char *adaptorFileName = "ionXpress_barcode.txt";
+const char *inputFileName   = "../Sophia/input.sff";
+const char *adaptorFileName = "../Sophia/ionXpress_barcode.txt";
 
 // All the "fixed length" arrays and odd hashes could have been avoided within the STL framework,
 //  but I don't know if the libstdc++ is installed on the testing machine so I don't use STL
@@ -109,6 +109,9 @@ int main(int argc, char *argv[]){
         long recordLength = ftell(inputFile) - recordBegins;
 
         NumericSequence numSeq(seq);
+        if( numSeq.error() ){
+            printf("Warning\n");
+        }
 
         for(size_t i=0; i<strlen(seq); i++){
             unsigned long long view = numSeq.view(i,maxAdaptorLength);

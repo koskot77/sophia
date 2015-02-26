@@ -7,12 +7,14 @@
 #define MAX_LENGTH   (128)
 
 // A colisionless hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
-unsigned long long sequence2number(const char *sequence, unsigned short length){
+//   in case of a problem (e.g. uninterpretable sequence) last arguments returns position of the error (starting from 1)
+unsigned long long sequence2number(const char *sequence, unsigned short length, unsigned short &errPos){
     if( length > 32 ) return 0;
     // ascii codes of the symbols:
     //  T:  84, G: 71, A:65, C:67
     //  t: 116, g:103, a:97, c:99
     // construct the look-up table symbolic code -> a digit
+    // reserve code '4' to find out if the sequence has anything else besides precisely the four expected bases (i.e. T,G,A,C)
     const static unsigned short ascii2digit[128] = {
         // assign each symbol with an unique number from 0 to 3
         #define T 0
@@ -23,13 +25,13 @@ unsigned long long sequence2number(const char *sequence, unsigned short length){
         #define g 1
         #define a 2
         #define c 3
-        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,A,0,C,0,0, 0,G,0,0,0,0,0,0,0,0,
-        0,0,0,0,T,0,0,0,0,0, 0,0,0,0,0,0,0,a,0,c,
-        0,0,0,g,0,0,0,0,0,0, 0,0,0,0,0,0,t,0,0,0,
-        0,0,0,0,0,0,0,0
+        4,4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,4,4,4,4,4, 4,4,4,4,4,4,4,4,4,4,
+        4,4,4,4,4,A,4,C,4,4, 4,G,4,4,4,4,4,4,4,4,
+        4,4,4,4,T,4,4,4,4,4, 4,4,4,4,4,4,4,a,4,c,
+        4,4,4,g,4,4,4,4,4,4, 4,4,4,4,4,4,t,4,4,4,
+        4,4,4,4,4,4,4,4
         #undef c
         #undef a
         #undef g
@@ -39,13 +41,17 @@ unsigned long long sequence2number(const char *sequence, unsigned short length){
         #undef G
         #undef T
     };
-    // remark about safety: if ever we encounter an unknown (not one of the four) symbol, it'll be considered symbol 'T' 
-    //  although this wouldn't make much sence, we would at least never get an overflow
 
     // calculating the code number
     unsigned long long retval = 0;
-    for(size_t pos=0,order=0; pos<length; pos++,order+=2)
-        retval += (unsigned long long)( ascii2digit[(unsigned short)(sequence[pos])] ) << order;
+    for(size_t pos=0,order=0; pos<length; pos++,order+=2){
+        unsigned short code = ascii2digit[(unsigned short)(sequence[pos])];
+        if( code>3 ){       // unknown base?
+            errPos = pos+1; // raise an error
+            code   = 0;     // pretend it is 'T' and carry on
+        }
+        retval += (unsigned long long)(code) << order;
+    }
 
     // beware: sequence with 'T' symbol(s) in the end converted to the same number as sequence without these 'T's
     //  hence, always keep track of the sequence's length when use result of this function
@@ -78,8 +84,11 @@ private:
     unsigned long long *data;   // numeric representation of the sequence
     size_t size, length;        // size of the array and length of the original symbolic sequence
     const static unsigned symbolsInOneElement; // number of symbols coded by a single element of the numeric array
+    unsigned long errorPos;    // first occurance position of an interpretation problem (if any -> starting from 1)
 
 public:
+    unsigned long error(void) const { return errorPos; }
+
     // random access view; start and width are measured in symbols
     unsigned long long view(size_t start, size_t width) const {
         unsigned long long retval = 0;
@@ -100,20 +109,34 @@ public:
         return retval;
     }
 
-    // construct numeric sequence from a symbolic sequence
-    NumericSequence(const char *symbolicSequence){
-        // allocate data array for the numeric sequence
+    NumericSequence& operator=(const char *symbolicSequence){
+        // reset errors
+        unsigned short err = 0;
+        errorPos = 0;
+        // destroy the previous numeric sequence (if any)
+        if( data ) delete [] data;
+        // allocate new data array for the numeric sequence
         length = strlen(symbolicSequence);
         size   = length/symbolsInOneElement + 1;
         data   = new unsigned long long [size+1];
         // convert the symbolic sequence into the numeric sequence and store it in the array
         const char *ptr = symbolicSequence;
         for(size_t block = 0; block < size-1; block++){
-            data[block] = sequence2number(ptr,symbolsInOneElement);
+            data[block] = sequence2number(ptr,symbolsInOneElement,err);
+            if( err!=0 && errorPos==0 ) errorPos = err + block * symbolsInOneElement;
             ptr += symbolsInOneElement;
         }
-        data[size-1] = sequence2number(ptr, length - (ptr-symbolicSequence));
-        data[size]   = 0;
+        data[size-1] = sequence2number(ptr, length - (ptr-symbolicSequence), err);
+        if( err!=0 && errorPos==0 ) errorPos = err + (size-1) * symbolsInOneElement;
+
+        data[size] = 0;
+
+        return *this;
+    }
+
+    // construct numeric sequence from a symbolic sequence
+    NumericSequence(const char *symbolicSequence):data(0),size(0),length(0){
+        this->operator=(symbolicSequence);
     }
     // copying constructor is a "must have thing" whenever objects owns dynamically allocated data
     NumericSequence(const NumericSequence& src){
@@ -187,7 +210,8 @@ public:
             size_t length = strlen( keys[k] );
             if( length > 0 ){
                 lengths[k+1] = length;
-                values [k+1] = sequence2number(keys[k],length);
+                unsigned short errorPos = 0;
+                values [k+1] = sequence2number(keys[k],length,errorPos);
                 size_t bucket = values[k+1] % BUCKETS;
                 size_t collision = 0;
                 while( table[bucket][collision] ) collision++;
