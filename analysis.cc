@@ -10,8 +10,7 @@
 
 #include "toolbox.h"
 
-const char *fileName = "../Sophia/testReads.fastq";
-//const char *fileName = "../Sophia/qwe.qwe";
+const char *fileName = "../testReads.fastq";
 
 #define NREC (10000)
 
