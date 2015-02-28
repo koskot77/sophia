@@ -12,6 +12,9 @@
 
 const char *fileName = "../testReads.fastq";
 
+#define PATT1 12325873837508463555 // CTTCCATTGACCACATCTCCTCTGACTTCAAA
+#define PATT2   212563866291924588 // TCAGACACGAAGACTCGGCAGCATCTCCAT
+
 #define NREC (10000)
 
 using namespace std;
@@ -139,7 +142,7 @@ int main(int argc, char *argv[]){
 
     if( !output ){ cout<<"Cannot open "<<"output.csv"<<endl; return 0; }
 
-    output<<"ID,label,count"<<(comprehensive?",meanQual,sdQual,acc":"")<<endl;
+    output<<"ID,label,count"<<(comprehensive?",meanQual,sdQual,accuracy":"")<<endl;
 
     for(map<unsigned long long,unsigned int>::const_iterator seq = counts.begin(); seq != counts.end(); seq++){
         output<<seq->first<<","<<number2sequence(seq->first,viewWidth)<<","<<seq->second;
@@ -170,6 +173,18 @@ int main(int argc, char *argv[]){
            <<endl;
     }
     err.close();
+
+    unsigned short errorPos = 0;
+    unsigned long long pattern = (argc>3 && strlen(argv[3])==viewWidth ? sequence2number(argv[3],viewWidth,errorPos) : 0);
+
+    // store the vector of qualities of the requested pattern
+    if( pattern && errorPos==0 ){
+        ofstream out1("pattern.csv");
+        out1<<"qual"<<endl;
+        for(list<double>::const_iterator q=averageQuality[pattern].begin(); q!=averageQuality[pattern].end(); q++)
+            out1<<*q<<endl;
+        out1.close();
+    }
 
     return 0;
 }
