@@ -14,7 +14,7 @@ Phred quality score is in sanger format not illumina.
 3. The report should be in PDF format and figures rather than descriptive words is preferred. Please also make clear description on your figures.
 4. The report could be anything that you find interesting on the file. For example, it could be patterns you found on the data, com
 
-# Exploratory analysis of the headers
+# Exploratory analysis of headers
 
 Each record header consists of five fields:
 *unique id*, *rank*, *x*, *y*, and *length*. An example looks as follows:
@@ -38,37 +38,28 @@ if( !file.exists("qwe.csv") ){
 library(ggplot2)
 qwe <- read.csv("qwe.csv",head=T,sep=',')
 
-p1 <-ggplot(data=qwe,aes(x=rank)) + geom_histogram(fill="steelblue") + scale_x_continuous(breaks=seq(0,240000,60000))
-p2 <-ggplot(data=qwe,aes(x=x)) + geom_histogram(fill="steelblue")
-p3 <-ggplot(data=qwe,aes(x=y)) + geom_histogram(fill="steelblue")
-p4 <- ggplot(data=qwe,aes(x=len)) + geom_histogram(breaks=seq(0,1000,1),fill="steelblue")
+p1 <- ggplot(data=qwe,aes(x=rank)) + geom_histogram() + scale_x_continuous(breaks=seq(0,240000,60000))
+p2 <- ggplot(data=qwe,aes(x=x)) + geom_histogram()
+p3 <- ggplot(data=qwe,aes(x=y)) + geom_histogram()
+p4 <- ggplot(data=qwe,aes(x=len)) + geom_histogram(breaks=seq(0,1000,1))
 
 library(gridExtra)
 grid.arrange(p1, p4, p2, p3, ncol=2)
 ```
 
-Neitgher do correlations tell us an interesting story. So let us omit rather non-informative scatter plots here.
+Neither do correlations tell us an interesting story. So let us omit rather non-informative scatter plots here.
 <!-- (except for a weak positive *rank* <-> *length*) -->
 
 
-# Analysis of the sequences and their qualities
-
-Objectives:
-
-- identify data variability
-- find repeating patterns and do a pattern density check
-- study the data quality
-- look for various correlations
+# Analysis of the sequences
 
 Analysis design:
 
 - pick a pattern length from 1 to 32 symbols
-- scan sequences and count all unique patters
-- identify patters that repeat more often than others
-- calculate mean and standard deviation of qualities for these pattern
-- evaluate probability of the pattern to be read correctly
+- scan sequences and identify patters that repeat more often than others
+- count all unique patters
 
-Starting from the code that I already developed for the task #1, I implemented [a simple command line tool](https://github.com/koskot77/sophia/blob/master/analysis.cc) that runs a density check for patterns of a specified length. In the trivial case of *length=1* we have four patters after the four bases:
+Starting from the code that I already developed for the task #1, I implemented [a simple command line tool](https://github.com/koskot77/sophia/blob/master/analysis.cc) that runs a density check for patterns of a specified length. In the trivial case of *length=1* we have four patterns after the four bases:
 
 ```{r, echo=F, message=FALSE}
 
@@ -80,9 +71,25 @@ an <- read.csv(file='sophia/output_1.csv',head=T,sep=',')
 print(an)
 ```
 
-Number of possible combinations grows as 4^*length* until *length*~10 where it slows down (patterns become less random while still growing exponentially in numbers):
 
-```{r, echo=F, message=FALSE, fig.height=4}
+For second and third trivial cases of *length=2* and *3* the 16 and 64 patterns occur at following rates:
+
+```{r, echo=F, message=FALSE, fig.height=3}
+an2 <- read.csv(file='sophia/output_2.csv',header=T,sep=',')
+p2  <- ggplot(aes(x=label,y=count),data=an2) + geom_histogram(stat="identity") +
+       theme(axis.text.x = element_text(angle=90)) +
+       labs(x="pattern",y="count",title="Pattern length = 2")
+an3 <- read.csv(file='sophia/output_3.csv',header=T,sep=',')
+p3  <- ggplot(aes(x=label,y=count),data=an3) + geom_histogram(stat="identity") +
+       theme(axis.text.x = element_text(angle=90)) +
+       labs(x="pattern",y="count",title="Pattern length = 3") +
+       theme(axis.text.x = element_text(size = 3))
+grid.arrange(p2, p3, ncol=2)
+```
+
+Number of found unique combinations of the 4 bases grows as 4^*length*^ until *length~10* where it slows down (patterns start look less random while still growing exponentially in numbers):
+
+```{r, echo=F, message=FALSE, fig.height=2.5}
 #combinations <- data.frame( width=integer(), found=integer() )
 #for(w in 1:32){
 #  print(w)
@@ -95,52 +102,46 @@ combinations <- data.frame( width=seq(1,32,1), found=c(
 19.13, 19.25, 19.36, 19.46, 19.55, 19.63, 19.72, 19.79, 19.87, 19.94,
 20.01, 20.07, 20.14, 20.20, 20.26, 20.32, 20.38, 20.43, 20.48, 20.50) )
 
-ggplot(data=combinations,aes(x=width,y=found)) + geom_point() + labs(x="pattern length (symbols)",y="log2( # of unique patterns found )",title="Data variability")
+ggplot(data=combinations,aes(x=width,y=found)) + geom_point() + labs(x="pattern length (symbols)",y="log2(# of unique patterns)",title="Data variability")
 ```
 
-Let us check how often the patterns repeat in the data:
+Let us check how often patterns of specific lengths repeat in the data. From now on for the presentation purposes I use unique *pattern ID* numbers in place of the lengthy symbolic sequences. You can associate the *pattern ID* to a sequence using my more interactive [**shinyapp tool**](https://koskot77.shinyapps.io/sophia/).
 
-```{r, echo=F, message=FALSE, fig.height=4}
-an30 <- read.csv(file='sophia/output_30.csv',header=T,sep=',')
-p1 <- ggplot(data=an30,aes(x=ID,y=count)) + geom_point(color="steelblue",size=0.5) + labs(x="pattern ID",y="# of patterns found",title="Pattern length = 30")
-
+```{r, echo=F, message=FALSE, fig.height=3}
 an20 <- read.csv(file='sophia/output_20.csv',header=T,sep=',')
-p2 <- ggplot(data=an20,aes(x=ID,y=count)) + geom_point(color="steelblue",size=0.5) + labs(x="pattern ID",y="# of patterns found",title="Pattern length = 20")
-
-an15 <- read.csv(file='sophia/output_15.csv',header=T,sep=',')
-p3 <- ggplot(data=an15,aes(x=ID,y=count)) + geom_point(color="steelblue",size=0.5) + labs(x="pattern ID",y="# of patterns found",title="Pattern length = 15")
+p20  <- ggplot(data=an20,aes(x=ID,y=count)) + geom_point(size=1) +
+        labs(x="pattern ID",y="count",title="Pattern length = 20")
 
 an10 <- read.csv(file='sophia/output_10.csv',header=T,sep=',')
-p4 <- ggplot(data=an10,aes(x=ID,y=count)) + geom_point(color="steelblue",size=0.5) + labs(x="pattern ID",y="# of patterns found",title="Pattern length = 10")
+p10  <- ggplot(data=an10,aes(x=ID,y=count)) + geom_point(size=1) +
+        labs(x="pattern ID",y="count",title="Pattern length = 10")
 
-grid.arrange(p4, p3, p2, p1, ncol=2)
+grid.arrange(p10, p20, ncol=2)
 ```
 
-Interesting features on these plots are:
+Interesting features on these plots are horizontal and vertical clusters of dots. Although many of these dots correspond to a rather similar sequences, there still seem to be several different types of patterns there. Perhaps, those patterns mostly show up correlated in the sequences.
 
-1. "vertical lines" around some of the pattern IDs (e.g. see 
-"length = 30" plot)
-2. "horisintal lines"
-
-Close look into the patterns from the structures confirmed that they often correspond to some variations of the same sequences. In other words, these patterns get assigned with the different IDs, but they often share parts.
+# Qualities 
 
 Let us now look at the adjusted to 0 (shifted by 33 units) Phred quality scores of the frequent patterns:
 
-```{r, echo=F, message=FALSE, fig.height=4}
+```{r, echo=F, message=FALSE, fig.height=3}
 
-p14 <- ggplot(data=an10[an10$count>30000,],aes(x=meanQual,y=count)) + geom_point(color="steelblue",size=1) + labs(x=expression(paste("Average quality (",Sigma," q / length)")),y="# of patterns",title="Pattern length = 10")
+p10 <- ggplot(data=an10[an10$count>30000,],aes(x=meanQual,y=count)) + geom_point(size=1) +
+       labs(x=expression(paste("Average quality (",Sigma,q[i]," / length)")),y="# of patterns",title="Pattern length = 10")
 
-p13 <- ggplot(data=an15[an15$count>10000,],aes(x=meanQual,y=count)) + geom_point(color="steelblue",size=1) + labs(x=expression(paste("Average quality (",Sigma," q / length)")),y="# of patterns",title="Pattern length = 15")
+p20 <- ggplot(data=an20[an20$count>5000,],aes(x=meanQual,y=count)) + geom_point(size=1) +
+       labs(x=expression(paste("Average quality (",Sigma,q[i]," / length)")),y="# of patterns",title="Pattern length = 20")
 
-p12 <- ggplot(data=an20[an20$count>5000,],aes(x=meanQual,y=count)) + geom_point(color="steelblue",size=1) + labs(x=expression(paste("Average quality (",Sigma," q / length)")),y="# of patterns",title="Pattern length = 20")
-
-p11 <- ggplot(data=an30[an30$count>1000,],aes(x=meanQual,y=count)) + geom_point(color="steelblue",size=1) + labs(x=expression(paste("Average quality (",Sigma," q / length)")),y="# of patterns",title="Pattern length = 30")
-
-grid.arrange(p14, p13, p12, p11, ncol=2)
+grid.arrange(p10, p20, ncol=2)
 ```
 
 
 
 # Summary
 
-In addition, 432 records with base 'N' and quality 0 were identified. Patterns that included this base were dismissed from the study.
+- Total 84205 records were analyzed.
+
+- 432 records have base labeled 'N' with the corresponding quality 0. Patterns that included such terms were dismissed from the study.
+
+- Basic density check
