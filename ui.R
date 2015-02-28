@@ -5,6 +5,7 @@ shinyUI(pageWithSidebar(
   headerPanel("Sophia task #2"),
   sidebarPanel(
     h1('Draw menu'),
+    selectInput("inputX", "observable X:", choices = c('pattern ID'='ID','quality'='meanQual')),
     selectInput("inputY", "observable Y:", choices = c('count'='count', 'average quality'='meanQual','standard deviation'='sdQual','accuracy'='acc')),
 
     sliderInput('xlow', 'Minimum X',value = 0,   min = 0, max = 100, step = 1,),
@@ -21,7 +22,7 @@ shinyUI(pageWithSidebar(
 #    dateInput("date", "Date:")
   ),
   mainPanel(
-    p('Interactive visualization engine. Analyze patterns of length=10. Details are on the ', a("github page", href="https://github.com/koskot77/sophia", target="_blank"),'.'),
+    p('Interactive visualization engine. Analyze patterns of length=10. Details are on the ', a("github page", href="https://koskot77.github.io/sophia", target="_blank"),'.'),
     plotOutput('myHist'),
     verbatimTextOutput("events"),
     showOutput("myChart", "dimple")

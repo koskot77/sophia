@@ -8,17 +8,17 @@ shinyServer(
   function(input, output) {
     nEvents <- 0
     output$myHist <- renderPlot({
-      x <- 'ID' #input$inputX
+      x <- input$inputX
       y <- input$inputY
       xlow  <- input$xlow
       xhigh <- input$xhigh
       ylow  <- input$ylow
       yhigh <- input$yhigh
 
-#      if( x=='ID' )
+      if( x=='ID' )
           xlab <- "pattern ID"
-#      if( x=='label' )
-#          xlab <- "pattern"
+      if( x=='meanQual' )
+          xlab <- "average quality"
       if( y=='count' )
           ylab <- "# of found patterns"
       if( y=='meanQual' )
@@ -37,7 +37,7 @@ shinyServer(
            labs(x=xlab,y=ylab,title="")
     })
     output$events <- renderPrint({
-      x <- 'ID' #input$inputX
+      x <- input$inputX
       y <- input$inputY
       xlow  <- input$xlow
       xhigh <- input$xhigh
@@ -60,7 +60,7 @@ shinyServer(
 
     output$myChart = renderChart({
 
-      x <- 'ID' #input$inputX
+      x <- input$inputX
       y <- input$inputY
       xlow  <- input$xlow
       xhigh <- input$xhigh
