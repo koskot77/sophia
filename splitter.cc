@@ -3,15 +3,11 @@
 #include <string.h>
 #include "./toolbox.h"
 
-// gcc -D__GENOME__ -g -I. -c splitter.cc && gcc -g -o test splitter.o sff2fastq/sff.genome.o -lstdc++
-// time for i in `cat ionXpress_barcode.txt | awk '{print $2}'`; do echo $i; grep $i data.txt | wc; done
+#include <map>
 
 // Input file names
-const char *inputFileName   = "../input.sff";
-const char *adaptorFileName = "../ionXpress_barcode.txt";
-
-// All the "fixed length" arrays and odd hashes could have been avoided within the STL framework,
-//  but I don't know if the libstdc++ is installed on the testing machine so I don't use STL
+const char *inputFileName   = "input.sff";
+const char *adaptorFileName = "ionXpress_barcode.txt";
 
 // Maximum length of the adaptor name and the coding sequence
 #define MAX_ADAPTORS (128)
@@ -74,8 +70,6 @@ int main(int argc, char *argv[]){
     LookUpTable hash2index(adaptorBases);
     printf("Found %ld collisions\n",hash2index.countCollisions());
 
-//inputFileName = argv[1];
-
     // open input file:
     FILE *inputFile = NULL;
     if( (inputFile = fopen(inputFileName,"r")) == NULL ){
@@ -83,14 +77,14 @@ int main(int argc, char *argv[]){
         exit(0);
     }
 
-    // make sure we remenber where the common header is in the input file
+    // make sure we remember where the common header is in the input file
     long commonHeaderBegins = ftell(inputFile);
     int nReads = readSFFcommonHeader(inputFile);
     long commonHeaderLength = ftell(inputFile) - commonHeaderBegins;
 
     printf("iterating over %d reads\n",nReads);
 
-    // every time we find an adaptor, remember the record position
+    // every time we find an adaptor, we will remember the record position
     unsigned int adaptorsFound[MAX_ADAPTORS];
     long  *adaptorBegins[MAX_ADAPTORS]; //[nReads];
     long  *adaptorLength[MAX_ADAPTORS]; //[nReads];
@@ -115,19 +109,12 @@ int main(int argc, char *argv[]){
 
         for(size_t i=0; i<strlen(seq); i++){
             unsigned long long view = numSeq.view(i,maxAdaptorLength);
-            for(size_t len = maxAdaptorLength; len>=minAdaptorLength; len--){
-                const unsigned long long mask[] = {0x0,
-                             0x3,        0xF,        0x3F,        0xFF,        0x3FF,        0xFFF,        0x3FFF,        0xFFFF,
-                         0x3FFFF,    0xFFFFF,    0x3FFFFF,    0xFFFFFF,    0x3FFFFFF,    0xFFFFFFF,    0x3FFFFFFF,    0xFFFFFFFF,
-                     0x3FFFFFFFF,0xFFFFFFFFF,0x3FFFFFFFFF,0xFFFFFFFFFF,0x3FFFFFFFFFF,0xFFFFFFFFFFF,0x3FFFFFFFFFFF,0xFFFFFFFFFFFF}; 
-                view &= mask[len];
-                size_t ind = hash2index.find( view, len ); // terrible implementation of the hash!!!
-
-                if( ind != MAX_ADAPTORS ){
-                    adaptorBegins[ind][ adaptorsFound[ind] ] = recordBegins;
-                    adaptorLength[ind][ adaptorsFound[ind] ] = recordLength;
-                    adaptorsFound[ind]++;
-                }
+            size_t len = maxAdaptorLength;
+            size_t ind = hash2index.find( view, len ); // terrible implementation of the hash!!!
+            if( ind != MAX_ADAPTORS ){
+                adaptorBegins[ind][ adaptorsFound[ind] ] = recordBegins;
+                adaptorLength[ind][ adaptorsFound[ind] ] = recordLength;
+                adaptorsFound[ind]++;
             }
         }
 
@@ -176,7 +163,7 @@ int main(int argc, char *argv[]){
 
 
 
-///////// Inhereted code
+///////// Inherited code
 #include "sff2fastq/sff.h"
 #define VERSION "0.9.0"
 #define PRG_NAME "sff2fastq"
