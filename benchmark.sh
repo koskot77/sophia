@@ -11,7 +11,7 @@ wget http://dl.dropbox.com/u/68829208/test.sff.zip
 unzip test.sff.zip
 mv R_2012_01_27_18_17_55_user_PGM-11-HNPCC_long_2_Auto_PGM-11-HNPCC_long_2_11.sff input.sff
 
-cd sff2fastq && make && cd ../
+cd sff2fastq && make && cd ../ && make
 
 ./sff2fastq/sff2fastq -o data.txt input.sff
 
