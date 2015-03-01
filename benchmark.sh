@@ -2,7 +2,10 @@
 
 echo "Installing prerequisites"
 
-git clone https://github.com/indraniel/sff2fastq
+git clone https://github.com/koskot77/sophia.git
+cd sophia
+
+git clone https://github.com/indraniel/sff2fastq.git
 wget http://dl.dropbox.com/u/68829208/ionXpress_barcode.txt
 wget http://dl.dropbox.com/u/68829208/test.sff.zip
 unzip test.sff.zip
