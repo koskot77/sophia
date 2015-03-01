@@ -10,10 +10,7 @@
 
 #include "toolbox.h"
 
-const char *fileName = "../testReads.fastq";
-
-#define PATT1 12325873837508463555 // CTTCCATTGACCACATCTCCTCTGACTTCAAA
-#define PATT2   212563866291924588 // TCAGACACGAAGACTCGGCAGCATCTCCAT
+const char *fileName = "./testReads.fastq";
 
 #define NREC (10000)
 
