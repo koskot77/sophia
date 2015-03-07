@@ -3,8 +3,6 @@
 #include <string.h>
 #include "./toolbox.h"
 
-#include <map>
-
 // Input file names
 const char *inputFileName   = "input.sff";
 const char *adaptorFileName = "ionXpress_barcode.txt";
@@ -24,7 +22,7 @@ unsigned int readAdaptors(const char *fileName, char names[MAX_ADAPTORS][MAX_LEN
 
     // safety first: make sure we won't get an overflow while scanning the components 
     char format[128];
-    sprintf(format,"%%%ds\t%%%ds\n",MAX_ADAPTORS-1,MAX_ADAPTORS-1); 
+    sprintf(format,"%%%ds\t%%%ds\n",MAX_LENGTH-1,MAX_LENGTH-1); 
 
     unsigned int num = 0;
     while( !feof(file) && num<MAX_ADAPTORS && 
@@ -64,6 +62,10 @@ int main(int argc, char *argv[]){
         if( length == 0 ) continue;
         if( length > maxAdaptorLength ) maxAdaptorLength = length;
         if( length < minAdaptorLength ) minAdaptorLength = length;
+    }
+    if( maxAdaptorLength - minAdaptorLength > 4 ){
+        printf("Adaptors should have length variation within 4 symbols max\n");
+        return 0;
     }
 
     // build a table
@@ -151,7 +153,8 @@ int main(int argc, char *argv[]){
             }
             fclose(outputFile);
         }
-        printf("%s: %d\n",adaptorNames[a],adaptorsFound[a]);
+        if( strlen(adaptorNames[a]) )
+            printf("%s: %d\n",adaptorNames[a],adaptorsFound[a]);
     }
 
     fclose(inputFile);

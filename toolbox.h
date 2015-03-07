@@ -6,7 +6,7 @@
 #define MAX_ADAPTORS (128)
 #define MAX_LENGTH   (128)
 
-// A collisions hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
+// A collisionless hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
 //   in case of a problem (e.g. non-interpretable sequence) last arguments returns position of the error (starting from 1)
 unsigned long long sequence2number(const char *sequence, unsigned short length, unsigned short &errPos){
     if( length > 32 ) return 0;
@@ -186,7 +186,7 @@ public:
             size_t             ind = table[bucket][col];
             unsigned long long val = values [ind];
             size_t             len = lengths[ind];
-            if( (number & ((0x1LL<<(len*2))-1)) == val ){
+            if( (number & ((0x1LL<<(len*2))-1)) == val && bestMatchLength < len ){
                 bestMatchLength = len;
                 matchIndex = ind;
             }
