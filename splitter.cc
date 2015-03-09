@@ -69,7 +69,7 @@ int main(int argc, char *argv[]){
     }
 
     // build a table
-    LookUpTable hash2index(adaptorBases);
+    LookUpTable number2index(adaptorBases);
     printf("Found %ld collisions\n",hash2index.countCollisions());
 
     // open input file:
@@ -85,6 +85,8 @@ int main(int argc, char *argv[]){
     long commonHeaderLength = ftell(inputFile) - commonHeaderBegins;
 
     printf("iterating over %d reads\n",nReads);
+
+//#include "l.h"
 
     // every time we find an adaptor, we will remember the record position
     unsigned int adaptorsFound[MAX_ADAPTORS];
@@ -109,21 +111,57 @@ int main(int argc, char *argv[]){
             printf("Warning\n");
         }
 
-        for(size_t i=0; i<strlen(seq); i++){
+        if( strlen(seq) < minAdaptorLength ) continue;
+
+        for(size_t i=0; i<strlen(seq) - minAdaptorLength; i++){
             unsigned long long view = numSeq.view(i,maxAdaptorLength);
             size_t len = maxAdaptorLength;
-            size_t ind = hash2index.find( view, len ); // terrible implementation of the hash!!!
+            size_t ind = number2index.find( view, len );
             if( ind != MAX_ADAPTORS ){
                 adaptorBegins[ind][ adaptorsFound[ind] ] = recordBegins;
                 adaptorLength[ind][ adaptorsFound[ind] ] = recordLength;
                 adaptorsFound[ind]++;
             }
         }
-
         free(seq);
     }
 
+/*
+    printf("unsigned int adaptorsFound[MAX_ADAPTORS] = {\n");
+    for(size_t a=0; a<MAX_ADAPTORS; a++){
+        printf("%d,",adaptorsFound[a]);
+        if((a%19)==0) printf("\n");
+    }
+    printf("}\n");
 
+    printf("long adaptorBegins[MAX_ADAPTORS][1209] = {\n");
+    for(size_t a=0; a<MAX_ADAPTORS; a++){
+        printf("{");
+        for(size_t i=0; i<1209; i++){
+            printf("%d",adaptorBegins[a][i]);
+            if(i!=1208) printf(",");
+            if(((i+1)%80)==0) printf("\n");
+        }
+        printf("}\n");
+        if(a!=MAX_ADAPTORS-1) printf(",\n");
+    }
+    printf("}\n");
+
+    printf("long adaptorLength[MAX_ADAPTORS][1209] = {\n");
+    for(size_t a=0; a<MAX_ADAPTORS; a++){
+        printf("{");
+        for(size_t i=0; i<1209; i++){
+            printf("%d",adaptorLength[a][i]);
+            if(i!=1208) printf(",");
+            if(((i+1)%80)==0) printf("\n");
+        }
+        printf("}\n");
+        if(a!=MAX_ADAPTORS-1) printf(",\n");
+    }
+    printf("}\n");
+
+return 0;
+*/
     // Now we need to write back sff files
     for(size_t a=0; a<MAX_ADAPTORS; a++){
         if( adaptorsFound[a] ){ //&& false ){

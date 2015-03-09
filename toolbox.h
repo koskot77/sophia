@@ -42,7 +42,7 @@ unsigned long long sequence2number(const char *sequence, unsigned short length, 
         #undef T
     };
 
-    // calculating the code number
+    // calculating the number
     unsigned long long retval = 0;
     for(size_t pos=0,order=0; pos<length; pos++,order+=2){
         unsigned short code = ascii2digit[(unsigned short)(sequence[pos])];
@@ -154,7 +154,7 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 
 
 // Let us build a classical hash function around '%' operator and construct a look-up table
-#define BUCKETS (104743)      // a moderate size prime number
+#define BUCKETS (10007)       // a moderate size prime number
 #define MAX_COLLISIONS (10)   // allow up to 10 collisions
 class LookUpTable {
 private:
