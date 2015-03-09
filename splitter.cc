@@ -70,7 +70,7 @@ int main(int argc, char *argv[]){
 
     // build a table
     LookUpTable number2index(adaptorBases);
-    printf("Found %ld collisions\n",hash2index.countCollisions());
+    printf("Found %ld collisions\n",number2index.countCollisions());
 
     // open input file:
     FILE *inputFile = NULL;
@@ -86,14 +86,12 @@ int main(int argc, char *argv[]){
 
     printf("iterating over %d reads\n",nReads);
 
-//#include "l.h"
-
     // every time we find an adaptor, we will remember the record position
-    unsigned int adaptorsFound[MAX_ADAPTORS];
-    long  *adaptorBegins[MAX_ADAPTORS]; //[nReads];
-    long  *adaptorLength[MAX_ADAPTORS]; //[nReads];
+    unsigned int adaptorsFound[MAX_ADAPTORS+1];
+    long  *adaptorBegins[MAX_ADAPTORS+1]; //[nReads];
+    long  *adaptorLength[MAX_ADAPTORS+1]; //[nReads];
     bzero(adaptorsFound, sizeof(adaptorsFound));
-    for(size_t a=0; a<MAX_ADAPTORS; a++){
+    for(size_t a=0; a<MAX_ADAPTORS+1; a++){
         adaptorBegins[a] = new long [nReads];
         adaptorLength[a] = new long [nReads];
         bzero(adaptorBegins[a], sizeof(long)*nReads);
@@ -111,66 +109,42 @@ int main(int argc, char *argv[]){
             printf("Warning\n");
         }
 
-        if( strlen(seq) < minAdaptorLength ) continue;
+        bool foundAdaptor = false;
 
-        for(size_t i=0; i<strlen(seq) - minAdaptorLength; i++){
-            unsigned long long view = numSeq.view(i,maxAdaptorLength);
-            size_t len = maxAdaptorLength;
-            size_t ind = number2index.find( view, len );
-            if( ind != MAX_ADAPTORS ){
-                adaptorBegins[ind][ adaptorsFound[ind] ] = recordBegins;
-                adaptorLength[ind][ adaptorsFound[ind] ] = recordLength;
-                adaptorsFound[ind]++;
+        if( strlen(seq) >= minAdaptorLength ){
+
+            for(size_t i=0; i<strlen(seq) - minAdaptorLength; i++){
+                unsigned long long view = numSeq.view(i,maxAdaptorLength);
+                size_t len = maxAdaptorLength;
+                size_t ind = number2index.find( view, len );
+                if( ind != MAX_ADAPTORS ){
+                    adaptorBegins[ind][ adaptorsFound[ind] ] = recordBegins;
+                    adaptorLength[ind][ adaptorsFound[ind] ] = recordLength;
+                    adaptorsFound[ind]++;
+                    foundAdaptor = true;
+                }
             }
+
         }
+
+        if( !foundAdaptor ){
+            adaptorBegins[MAX_ADAPTORS][ adaptorsFound[MAX_ADAPTORS] ] = recordBegins;
+            adaptorLength[MAX_ADAPTORS][ adaptorsFound[MAX_ADAPTORS] ] = recordLength;
+            adaptorsFound[MAX_ADAPTORS]++;
+        }
+
         free(seq);
     }
 
-/*
-    printf("unsigned int adaptorsFound[MAX_ADAPTORS] = {\n");
-    for(size_t a=0; a<MAX_ADAPTORS; a++){
-        printf("%d,",adaptorsFound[a]);
-        if((a%19)==0) printf("\n");
-    }
-    printf("}\n");
-
-    printf("long adaptorBegins[MAX_ADAPTORS][1209] = {\n");
-    for(size_t a=0; a<MAX_ADAPTORS; a++){
-        printf("{");
-        for(size_t i=0; i<1209; i++){
-            printf("%d",adaptorBegins[a][i]);
-            if(i!=1208) printf(",");
-            if(((i+1)%80)==0) printf("\n");
-        }
-        printf("}\n");
-        if(a!=MAX_ADAPTORS-1) printf(",\n");
-    }
-    printf("}\n");
-
-    printf("long adaptorLength[MAX_ADAPTORS][1209] = {\n");
-    for(size_t a=0; a<MAX_ADAPTORS; a++){
-        printf("{");
-        for(size_t i=0; i<1209; i++){
-            printf("%d",adaptorLength[a][i]);
-            if(i!=1208) printf(",");
-            if(((i+1)%80)==0) printf("\n");
-        }
-        printf("}\n");
-        if(a!=MAX_ADAPTORS-1) printf(",\n");
-    }
-    printf("}\n");
-
-return 0;
-*/
     // Now we need to write back sff files
-    for(size_t a=0; a<MAX_ADAPTORS; a++){
+    for(size_t a=0; a<MAX_ADAPTORS+1; a++){
         if( adaptorsFound[a] ){ //&& false ){
             // open output file:
             char name[MAX_LENGTH+4];
-            sprintf(name,"%s.sff",adaptorNames[a]);
+            sprintf(name,"%s.sff", ( a<MAX_ADAPTORS ? adaptorNames[a] : "noBarCode") );
             FILE *outputFile = NULL;
             if( (outputFile = fopen(name,"w")) == NULL ){
-                printf("Cannot open %s\n",adaptorNames[a]);
+                printf("Cannot open %s\n", ( a<MAX_ADAPTORS ? adaptorNames[a] : "noBarCode") );
                 exit(0);
             }
             // write the common header
@@ -191,9 +165,10 @@ return 0;
             }
             fclose(outputFile);
         }
-        if( strlen(adaptorNames[a]) )
+        if( a<MAX_ADAPTORS && strlen(adaptorNames[a]) )
             printf("%s: %d\n",adaptorNames[a],adaptorsFound[a]);
     }
+    printf("noBarCode: %d\n",adaptorsFound[MAX_ADAPTORS]);
 
     fclose(inputFile);
     return 0;
