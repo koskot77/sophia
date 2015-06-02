@@ -3,7 +3,7 @@
 #include <string.h>  // bzero,strlen 
 
 // Maximum length of the adaptor name and the coding sequence
-#define MAX_ADAPTORS (128)
+#define MAX_ADAPTORS (1024)
 #define MAX_LENGTH   (128)
 
 // A collisionless hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
