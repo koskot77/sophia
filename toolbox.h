@@ -155,20 +155,23 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 
 // Let us build a classical hash function around '%' operator and construct a look-up table
 #define BUCKETS (10007)       // a moderate size prime number
-#define MAX_COLLISIONS (10)   // allow up to 10 collisions
+#define MAX_COLLISIONS (10)   // allow up to 100 collisions
 class LookUpTable {
 private:
     unsigned long long values [MAX_ADAPTORS+1];  // original values (converted keys); indexing starts from 1 
     size_t             lengths[MAX_ADAPTORS+1];  // we should also carry around the length of original sequence in case it was ending with 'T's
     size_t **table; //[BUCKETS][MAX_COLLISIONS]; // look-up table; stores 0 for empty buckets or an index of a potential match for a given hash value
     size_t  *nCollisions; //[BUCKETS];           // number of collisions (should mostly be 0)
-
 public:
     // performance
-    size_t countCollisions(void) const {
-        size_t retval = 0;
-        for(size_t bucket=0; bucket<BUCKETS; bucket++) retval += nCollisions[bucket];
-        return retval;
+    size_t countCollisions(size_t &maxCollisions) const {
+        size_t sum = 0, max = 0;
+        for(size_t bucket=0; bucket<BUCKETS; bucket++){
+            if( max < nCollisions[bucket] ) max = nCollisions[bucket];
+            sum += nCollisions[bucket];
+        }
+        maxCollisions = max;
+        return sum;
     }
 
     // quick search function returns MAX_ADAPTORS if requested number is not among the known keys, otherwise key index (start from 0)
@@ -260,8 +263,8 @@ public:
     }
 };
 
-#undef MAX_COLLISIONS
-#undef BUCKETS
+///#undef MAX_COLLISIONS
+///#undef BUCKETS
 
 //#undef MAX_ADAPTORS
 //#undef MAX_LENGTH

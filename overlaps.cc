@@ -1,3 +1,4 @@
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
@@ -16,7 +17,7 @@ const char *fileName = "./testReads.fastq";
 #define NREC (10000)
 size_t nReads = 0;
 
-// g++ -g -Wall -std=c++11 -o q overlaps.cc -lpthread
+// g++ -g -Wall -std=c++0x -o q overlaps.cc -lpthread
 
 using namespace std;
 vector<string> identifier(NREC);
@@ -63,12 +64,26 @@ static void* findMatches(void *arg){
         if( strlen(seq1) >= viewWidth ){
             for(size_t i=0; i<strlen(seq1)-viewWidth; i++){
                 if( i>=MAX_ADAPTORS ){ cout<<"Long record ... exiting"<<endl; return 0; }
-                strncpy(matchPattern[i],seq1,viewWidth);
+                strncpy(matchPattern[i],seq1+i,viewWidth);
                 matchPattern[i][viewWidth] = '\0';
             }
 
             // build the hash from the patterns
             LookUpTable lookUp(matchPattern);
+            // check quality of the hash table
+            size_t maxCollisions = 0;
+            lookUp.countCollisions( maxCollisions );
+            if( maxCollisions >= MAX_COLLISIONS ){
+                for(size_t k=0; k<MAX_ADAPTORS; k++){
+                    size_t length = strlen( matchPattern[k] );
+                    if( length > 0 ){
+                        unsigned short errorPos = 0;
+                        unsigned long long coreCode = sequence2number(matchPattern[k],strlen(matchPattern[k]),errorPos);
+                        printf("%ld: %s, bucket: %lld\n",k,matchPattern[k],coreCode % BUCKETS);
+                    }
+                }
+                return arg;
+            }
 
             // look for other reads matching any of the patterns of the reference record
             for(size_t read2=read1+1; read2<nReads; read2++){
@@ -105,14 +120,16 @@ static void* lookCloser(void *arg){
 
         stringstream fname;
         fname<<"output"<<read1<<".csv";
-        ofstream output( fname.str() );
+        ofstream output( fname.str().c_str() );
         if( !output ){ cout<<"Cannot open "<<fname<<endl; return 0; }
         output<<"read,score,len1,len2,overlap,overlapScore"<<endl;
 
         const char *seq1 = sequence[read1].c_str();
 
         set<size_t> &candidates = similars[read1];
-        for(auto read2 : candidates){
+        for(set<size_t>::const_iterator it=candidates.begin(); it!=candidates.end(); it++){
+
+            size_t read2 = *it;
 
             const char *seq2 = sequence[read2].c_str();
 
@@ -138,7 +155,7 @@ static void* lookCloser(void *arg){
             size_t overlapScore = 0;
             for(size_t i=overlapBegins; i<overlapEnds; i++) overlapScore += (a[i]==b[i]?0:1);
 
-            output<<read2<<","<<s<<","<<len1<<","<<len2<<","<<overlap<<", " << overlapScore << endl;
+            output<<read1<<","<<read2<<","<<s<<","<<len1<<","<<len2<<","<<overlap<<"," <<overlapScore<<endl;
         }
 
         cout<<"Read "<<read1<<" done"<<endl;
@@ -151,8 +168,8 @@ static void* lookCloser(void *arg){
 
 int main(int argc, char *argv[]){
     // open input file:
-
-    const size_t nCycles = 10;
+    size_t iteration = atol(argv[1]);
+    const size_t nCycles = 100;
 
     ifstream input(fileName);
 
@@ -184,7 +201,7 @@ int main(int argc, char *argv[]){
     cout<<"Reads: "<<nReads<<endl;
 
 ////////////////////////////
-    const int numThreads = 4;
+    const size_t numThreads = 4;
 
     pthread_attr_t attr;
 
@@ -196,7 +213,7 @@ int main(int argc, char *argv[]){
 
     for(size_t tnum=0; tnum<numThreads; tnum++){
         arg[tnum].thread_num = tnum + 1;
-        arg[tnum].readBegin = nCycles*tnum;
+        arg[tnum].readBegin = nCycles*(tnum + iteration);
         arg[tnum].readEnd   = arg[tnum].readBegin + nCycles;
 
         s = pthread_create(&arg[tnum].thread_id, &attr, &findMatches, &arg[tnum]);
@@ -211,6 +228,7 @@ int main(int argc, char *argv[]){
         void *res;
         s = pthread_join(arg[tnum].thread_id, &res);
         if( s != 0 ) handle_error_en(s, "pthread_join");
+        if( res != 0 ){ printf("Bad quality hash table ... exiting\n"); return 0; }
 
         printf("Joined with thread %d\n", arg[tnum].thread_num);
     }
@@ -231,7 +249,7 @@ int main(int argc, char *argv[]){
 
     for(size_t tnum=0; tnum<numThreads; tnum++){
         arg[tnum].thread_num = tnum + 1;
-        arg[tnum].readBegin = nCycles*tnum;
+        arg[tnum].readBegin = nCycles*(tnum + iteration);
         arg[tnum].readEnd   = arg[tnum].readBegin + nCycles;
 
         s = pthread_create(&arg[tnum].thread_id, &attr, &lookCloser, &arg[tnum]);
