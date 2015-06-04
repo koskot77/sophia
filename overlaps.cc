@@ -122,7 +122,7 @@ static void* lookCloser(void *arg){
         fname<<"output"<<read1<<".csv";
         ofstream output( fname.str().c_str() );
         if( !output ){ cout<<"Cannot open "<<fname<<endl; return 0; }
-        output<<"read,score,len1,len2,overlap,overlapScore"<<endl;
+        output<<"read1,read2,score,len1,len2,overlap,overlapScore"<<endl;
 
         const char *seq1 = sequence[read1].c_str();
 
@@ -238,7 +238,7 @@ int main(int argc, char *argv[]){
     ofstream output("output.csv");
     if( !output ){ cout<<"Cannot open "<<"output.csv"<<endl; return 0; }
     output<<"read,nMatches"<<endl;
-    for(size_t read1=0; read1<nCycles*numThreads; read1++)
+    for(size_t read1=nCycles*iteration; read1<nCycles*(iteration + numThreads); read1++)
         output<<read1<<","<<similars[read1].size()<<endl;
     output.close();
 

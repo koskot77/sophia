@@ -1,0 +1,5 @@
+# print 3rd record from the file:
+perl -ane '$l++;if($l==1){$m++;}if($l==4){$l=0;}if($m==3){print $F[0]."\n";}' testReads.fastq
+
+# concatenate all outputs into a single file:
+i=0; while [ $i -lt 84206 ] ; do cat output$i"".csv | perl -ane '$m++;if($m>1){$a=$_;$a=~s/(\d+),(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)/$1,$2,$7/g; print $a;}' >> ../w.csv; echo $i; i=`expr $i + 1`; done
