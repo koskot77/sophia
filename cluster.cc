@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <list>
 using namespace std;
@@ -51,7 +52,7 @@ public:
 };
 
 int main(int argc, char *argv[]){
-    unsigned int nNodes = 84204;
+    unsigned int nReads = 84205;
 
     int cutoffDistance = atoi(argv[2]);
 
@@ -68,10 +69,11 @@ int main(int argc, char *argv[]){
         if( distance > cutoffDistance ) continue;
         edges.insert( pair< int, pair<int,int> >(distance, pair<int,int>(origin,dest)) );
         edges2[origin][dest] = distance;
+        edges2[dest][origin] = distance;
     }
     if( edges.size() == 0 ) return 0;
 
-    UnionFind uf(nNodes);
+    UnionFind uf(nReads);
 
     size_t count = 0;
     for(multimap<int, pair<int,int> >::const_iterator edge=edges.begin(); edge!=edges.end(); edge++,count++){
@@ -83,15 +85,19 @@ int main(int argc, char *argv[]){
         if( cluster1 != cluster2 ) uf.joinClusters(cluster1,cluster2);
     }
 
-    cout<<"Found "<<uf.nClusters()<<" clusters:"<<endl;
+    cout<<"Found "<<uf.nClusters()<<" clusters"<<endl;
 
+    ofstream output("clusters.csv");
+    if( !output ){ cout<<"Cannot open clusters.csv"<<endl; return 0; }
+    output<<"read1,read2,distance"<<endl;
     const map<int, list<int> > &clusters = uf.clusters();
     for(map<int, list<int> >::const_iterator iter = clusters.begin(); iter != clusters.end(); iter++){
         int seed = iter->first;
         for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
-            cout<<" seed: "<<seed<<" -> "<<*node<<" dist= "<<edges2[seed][*node]<<endl;
+            output<<seed<<","<<*node<<","<<edges2[seed][*node]<<endl;
         }
     }
+    output.close();
 
     return 0;
 }
