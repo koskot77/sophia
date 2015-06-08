@@ -66,10 +66,12 @@ int main(int argc, char *argv[]){
     map<int, map<int,int> > edges2;
 
     for(int origin=0, dest=0, distance=0; !feof(input) && fscanf(input,"%d,%d,%d\n",&origin,&dest,&distance)==3;){
+        // cut below saves great deal of RAM and processing time, but has to be used with caution:
         if( distance >= 100 ) continue; //cutoffDistance*10 ) continue;
-        edges.insert( pair< int, pair<int,int> >(distance, pair<int,int>(origin,dest)) );
-        edges2[origin][dest] = distance;
-        edges2[dest][origin] = distance;
+        // 0 is reserved for special purposes of the UnionFind data structure, so increment everything by 1
+        edges.insert( pair< int, pair<int,int> >(distance, pair<int,int>(origin+1,dest+1)) );
+        edges2[origin+1][dest+1] = distance;
+        edges2[dest+1][origin+1] = distance;
     }
     if( edges.size() == 0 ) return 0;
 
@@ -93,9 +95,9 @@ int main(int argc, char *argv[]){
     const map<int, list<int> > &clusters = uf.clusters();
     for(map<int, list<int> >::const_iterator iter = clusters.begin(); iter != clusters.end(); iter++){
         int seed = iter->first;
-        for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
-            output<<seed<<","<<*node<<","<<edges2[seed][*node]<<endl;
-        }
+        if( iter->second.size() == 0 ) cerr<<" Error: empty cluster for "<<seed<<"!"<<endl;
+        for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++)
+            output<<seed-1<<","<<*node-1<<","<<edges2[seed][*node]<<endl;
     }
     output.close();
 
