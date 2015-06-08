@@ -66,7 +66,7 @@ int main(int argc, char *argv[]){
     map<int, map<int,int> > edges2;
 
     for(int origin=0, dest=0, distance=0; !feof(input) && fscanf(input,"%d,%d,%d\n",&origin,&dest,&distance)==3;){
-        if( distance > cutoffDistance ) continue;
+        if( distance >= 100 ) continue; //cutoffDistance*10 ) continue;
         edges.insert( pair< int, pair<int,int> >(distance, pair<int,int>(origin,dest)) );
         edges2[origin][dest] = distance;
         edges2[dest][origin] = distance;
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]){
 
     size_t count = 0;
     for(multimap<int, pair<int,int> >::const_iterator edge=edges.begin(); edge!=edges.end(); edge++,count++){
-        if( edge->first > cutoffDistance ) break;
+        if( edge->first >= cutoffDistance ) break;
         int node1 = edge->second.first;
         int node2 = edge->second.second;
         int cluster1 = uf.findCluster(node1);
