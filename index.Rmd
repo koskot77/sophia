@@ -1,5 +1,5 @@
 ---
-title       : "\"Some\" NSG analysis"
+title       : "\"Some\" NGS data analysis"
 subtitle    : 
 author      : Khristian Kotov
 job         : 
