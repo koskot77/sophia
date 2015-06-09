@@ -192,7 +192,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <li><span style="color:blue;">findMatches</span> preprocessing step runs for all \(O(N^2)\) pair combinations:
 
 <ul>
-<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns </li>
+<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns and <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L72">build a hash table</a> with these</li>
 <li>checks all other reads and remember those <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96">firing any of the search patterns</a></li>
 </ul></li>
 <li><span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
