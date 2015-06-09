@@ -118,7 +118,7 @@ Pattern frequency test is implemented in [analysis.cc](https://github.com/koskot
 
 Search for similar reads is implemented in [overlap.cc](https://github.com/koskot77/sophia/blob/master/overlaps.cc) file:
  * <span style="color:blue;">findMatches</span> preprocessing step runs for all $O(N^2)$ pair combinations:
-  * [chops a reference read](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69) into search patterns 
+  * [chops a reference read](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69) into search patterns and [build a hash table](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L72) with these
   * checks all other reads and remember those [firing any of the search patterns](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96)
  * <span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
   * runs [full-blown sequence alignment](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L142:L148) for pairs from the preprocessing step
