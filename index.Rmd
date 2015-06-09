@@ -235,7 +235,7 @@ p2$guides(
     min = 0,
     max = 11,
     numticks = 11,
-    title = "distance from center"
+    title = "Hamming distance from center"
   ),
   y = list(
     title = ""
