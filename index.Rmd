@@ -1,5 +1,5 @@
 ---
-title       : "\"Some\" NGS data analysis"
+title       : "\"Some\" NSG analysis"
 subtitle    : 
 author      : Khristian Kotov
 job         : 
@@ -118,7 +118,7 @@ Pattern frequency test is implemented in [analysis.cc](https://github.com/koskot
 
 Search for similar reads is implemented in [overlap.cc](https://github.com/koskot77/sophia/blob/master/overlaps.cc) file:
  * <span style="color:blue;">findMatches</span> preprocessing step runs for all $O(N^2)$ pair combinations:
-  * [chops a reference read](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69) into search patterns and [build a hash table](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L72) with these
+  * [chops a reference read](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69) into search patterns 
   * checks all other reads and remember those [firing any of the search patterns](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96)
  * <span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
   * runs [full-blown sequence alignment](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L142:L148) for pairs from the preprocessing step
@@ -218,7 +218,7 @@ if( !file.exists("clusters9.csv") ){
 cl <- read.csv(file='clusters9.csv',header=T,sep=',')
 ```
 
-Grouping reads with max "distance" of 9 mismatches and gaps gives `r length( unique(cl$read1) )` clusters
+Grouping reads with up to 9 mismatches/gaps apart (hamming distance) gives `r length( unique(cl$read1) )` clusters
 
 Cluster density diminishes slowly from center to periphery:
 
@@ -235,7 +235,7 @@ p2$guides(
     min = 0,
     max = 11,
     numticks = 11,
-    title = "Hamming distance from center"
+    title = "Hamming distance"
   ),
   y = list(
     title = ""
