@@ -218,7 +218,7 @@ if( !file.exists("clusters9.csv") ){
 cl <- read.csv(file='clusters9.csv',header=T,sep=',')
 ```
 
-Grouping reads up to 9 mismatches and gaps apart (hamming distance) gives `r length( unique(cl$read1) )` clusters
+Grouping reads with up to 9 mismatches/gaps apart (hamming distance) gives `r length( unique(cl$read1) )` clusters
 
 Cluster density diminishes slowly from center to periphery:
 
