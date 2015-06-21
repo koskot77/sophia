@@ -170,9 +170,9 @@ void processReads(size_t from, size_t to){
 ///////////////////////////////////////////////////////////////////////
 
 int main(int argc, char *argv[]){
-    // open input file:
-    size_t iteration = atol(argv[1]);
-    const size_t nCycles = 1000;
+
+    size_t iteration = 0; //atol(argv[1]);
+    const size_t nCycles = 100000;
 
     ifstream input(fileName);
 
@@ -230,21 +230,28 @@ int main(int argc, char *argv[]){
     }
     output.close();
 
+
+    ofstream ungrouped("ungrouped.fastq");
+    if( !ungrouped ){ cout<<"Cannot open ungrouped.fastq"<<endl; return 0; }
+
     for(map<int, list<int> >::const_iterator iter = clusters.begin(); iter != clusters.end(); iter++){
         int seed = iter->first;
         if( iter->second.size() == 0 ) cerr<<" Error: empty cluster for "<<seed<<"!"<<endl;
 
-        if( iter->second.size() < 1000 ) continue;
+        if( iter->second.size() < 100 ){
+            for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
+                ungrouped<<identifier[*node-1]<<endl;
+                ungrouped<<sequence  [*node-1]<<endl;
+                ungrouped<<"+"<<endl;
+                ungrouped<<quality   [*node-1]<<endl;
+            }
+            continue;
+        }
 
         stringstream fname;
-        fname<<"output"<<(seed-1)<<".csv";
+        fname<<"output"<<(seed-1)<<".fastq";
         ofstream output(fname.str());
         if( !output ){ cout<<"Cannot open "<<fname.str()<<endl; return 0; }
-
-        output<<identifier[seed-1]<<endl;
-        output<<sequence  [seed-1]<<endl;
-        output<<"+"<<endl;
-        output<<quality   [seed-1]<<endl;
 
         for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
             output<<identifier[*node-1]<<endl;
@@ -255,6 +262,8 @@ int main(int argc, char *argv[]){
 
         output.close();
     }
+
+    ungrouped.close();
 
     return 0;
 }
