@@ -7,9 +7,6 @@
 const char *inputFileName   = "input.sff";
 const char *adaptorFileName = "ionXpress_barcode.txt";
 
-// Maximum length of the adaptor name and the coding sequence
-#define MAX_ADAPTORS (128)
-#define MAX_LENGTH   (128)
 
 // Read specified text file with adaptors' names and coding sequences separated by tabs
 unsigned int readAdaptors(const char *fileName, char names[MAX_ADAPTORS][MAX_LENGTH], char bases[MAX_ADAPTORS][MAX_LENGTH]){
@@ -70,7 +67,9 @@ int main(int argc, char *argv[]){
 
     // build a table
     LookUpTable number2index(adaptorBases);
-    printf("Found %ld collisions\n",number2index.countCollisions());
+    size_t maxCollisions = 0;
+    printf("Found %ld collisions\n",number2index.countCollisions(maxCollisions));
+    if( maxCollisions >= MAX_COLLISIONS ) exit(0); // do not tolerate broken LUT
 
     // open input file:
     FILE *inputFile = NULL;
