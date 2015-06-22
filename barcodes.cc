@@ -237,7 +237,7 @@ int main(int argc, char *argv[]){
         if( iter->second.size() < 1000 ) continue;
 
         stringstream fname;
-        fname<<"output"<<(seed-1)<<".csv";
+        fname<<"output"<<(seed-1)<<".fastq";
         ofstream output(fname.str());
         if( !output ){ cout<<"Cannot open "<<fname.str()<<endl; return 0; }
 
