@@ -16,7 +16,7 @@
 #include "./toolbox.h"
 
 // Comile with:
-// g++ -Wl,--no-as-needed -g -Wall -std=c++0x -o q overlaps.cc -lpthread
+// g++ -Wl,--no-as-needed -g -Wall -std=c++0x -o barcodes barcodes.cc -lpthread
 
 using namespace std;
 
@@ -171,7 +171,7 @@ void processReads(size_t from, size_t to){
 
 int main(int argc, char *argv[]){
     // open input file:
-    size_t iteration = atol(argv[1]);
+    size_t iteration = 0; //atol(argv[1]);
     const size_t nCycles = 28069;
 
     ifstream input(fileName);
