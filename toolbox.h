@@ -256,7 +256,7 @@ public:
     }
 
     ~LookUpTable(void){
-        for(size_t k=0; k<MAX_ADAPTORS; k++)
+        for(size_t k=0; k<BUCKETS; k++)
             delete [] table[k];
         delete [] table;
         delete [] nCollisions;
