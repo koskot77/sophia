@@ -259,6 +259,27 @@ Using 8 for the cutoff removes the excess and results in `r length( unique(cl$re
 --- .class #id
 
 
+## Analysis: "barcodes"
+
+Wet labs sequence several samples in one go [tagging each sample with unique "barcode"](http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf)
+
+I de-multiplex the data by clustering reads with 10 consecutive matches within 15 symbol-wide window in the beginning of every sequence
+([barcodes.cc](https://github.com/koskot77/sophia/blob/master/barcodes.cc)); that yields 4 clusters:
+
+cluster |   barcode   | frequency |
+--------|-------------|-----------|
+1       | `TCGCGTGTC` |   19.3K   |
+2       | `TATCGCGAG` |   20.7K   |
+3       | `GTGTCTCTA` |   21.4K   |
+4       | `TCAGACACG` |   21.9K   |
+
+<br>
+
+Only about 0.5K reads are left out of these 4 major clusters
+
+--- .class #id
+
+
 ## Summary
 
 <br>
