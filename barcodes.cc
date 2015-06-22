@@ -20,7 +20,7 @@
 
 using namespace std;
 
-const char *fileName = "./data.txt";
+const char *fileName = "../Sophia/testReads.fastq";
 
 #define NREC (10000)
 size_t nReads = 0;
@@ -172,7 +172,7 @@ void processReads(size_t from, size_t to){
 int main(int argc, char *argv[]){
     // open input file:
     size_t iteration = atol(argv[1]);
-    const size_t nCycles = 1000;
+    const size_t nCycles = 28069;
 
     ifstream input(fileName);
 
@@ -205,7 +205,7 @@ int main(int argc, char *argv[]){
 
     uf = new UnionFind(nReads);
 
-    const size_t numThreads = 4;
+    const size_t numThreads = 3;
     std::thread threads[numThreads];
 
     for(size_t t=0; t<numThreads; t++)
@@ -240,11 +240,6 @@ int main(int argc, char *argv[]){
         fname<<"output"<<(seed-1)<<".csv";
         ofstream output(fname.str());
         if( !output ){ cout<<"Cannot open "<<fname.str()<<endl; return 0; }
-
-        output<<identifier[seed-1]<<endl;
-        output<<sequence  [seed-1]<<endl;
-        output<<"+"<<endl;
-        output<<quality   [seed-1]<<endl;
 
         for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
             output<<identifier[*node-1]<<endl;
