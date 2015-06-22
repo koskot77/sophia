@@ -79,9 +79,9 @@ public:
 
 /////////////// grouping reads with similar beginnings ////////////////
 
-// check first 'barcodeWidth' positions and request identity of 'viewWidth' consequetive symbols
+// check first 'barcodeWidth' positions and request identity of 'viewWidth' consecutive symbols
 const size_t barcodeWidth = 15;
-const size_t viewWidth    = 10;
+const size_t viewWidth    = 11;
 
 // mutex for the union-find data stracture preventing data race
 std::mutex mtx;
