@@ -203,6 +203,23 @@ public:
         return matchIndex;
     }
 
+    // copying constructor
+    LookUpTable(const LookUpTable &master){
+        // start with copying simple things
+        memcpy(values, master.values, sizeof(unsigned long long)*(MAX_ADAPTORS+1));
+        memcpy(lengths,master.lengths,sizeof(size_t)            *(MAX_ADAPTORS+1));
+
+        // allocate and copy dynamic tables
+        nCollisions = new size_t [BUCKETS];
+        memcpy(nCollisions, master.nCollisions, sizeof(size_t)*BUCKETS);
+
+        table = new size_t* [BUCKETS];
+        for(size_t k=0; k<BUCKETS; k++){
+            table[k] = new size_t [MAX_COLLISIONS];
+            memcpy(table[k], master.table[k], sizeof(size_t)*MAX_COLLISIONS);
+        }
+    }
+
     // construct the table from the set of keys (key's index serves the value)
     LookUpTable(const char keys[MAX_ADAPTORS][MAX_LENGTH]){
         // keys may have arbitrary lengths, but the quick search function operates on the fixed length numbers
