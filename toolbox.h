@@ -162,6 +162,7 @@ private:
     size_t             lengths[MAX_ADAPTORS+1];  // we should also carry around the length of original sequence in case it was ending with 'T's
     size_t **table; //[BUCKETS][MAX_COLLISIONS]; // look-up table; stores 0 for empty buckets or an index of a potential match for a given hash value
     size_t  *nCollisions; //[BUCKETS];           // number of collisions (should mostly be 0)
+
 public:
     // performance
     size_t countCollisions(size_t &maxCollisions) const {
@@ -201,6 +202,14 @@ public:
         length = bestMatchLength;
 
         return matchIndex;
+    }
+
+    // check if any of the patterns in this LUT match any of the patterns in the reference LUT
+    bool match(const LookUpTable &lut) const {
+        size_t length = 0;
+        for(size_t k=1; k<=MAX_ADAPTORS && lengths[k] && lut.find(values[k],length)==MAX_ADAPTORS; k++);
+        if( length ) return true;
+        return false;
     }
 
     // copying constructor
@@ -258,7 +267,7 @@ public:
                 // remember the sequence in numeric form
                 lengths[k+1] = length;
                 values [k+1] = coreCode; 
-
+N++;
                 // now create all new padding combinations and add those to the table
                 for(size_t padCode=0; padCode<(0x1<<((maxKeyLength - length)*2)); padCode++){
                     unsigned long long code = coreCode | (padCode<<(length*2));
