@@ -154,7 +154,8 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 
 
 // Let us build a classical hash function around '%' operator and construct a look-up table
-#define BUCKETS (10007)       // a moderate size prime number
+//#define BUCKETS (10007)       // a moderate size prime number
+#define BUCKETS (301)       // a moderate size prime number
 #define MAX_COLLISIONS (10)   // allow up to 100 collisions
 class LookUpTable {
 private:
@@ -267,7 +268,7 @@ public:
                 // remember the sequence in numeric form
                 lengths[k+1] = length;
                 values [k+1] = coreCode; 
-N++;
+
                 // now create all new padding combinations and add those to the table
                 for(size_t padCode=0; padCode<(0x1<<((maxKeyLength - length)*2)); padCode++){
                     unsigned long long code = coreCode | (padCode<<(length*2));
