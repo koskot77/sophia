@@ -14,10 +14,12 @@
 #include <future>
 #include <chrono>
 
+#include <getopt.h>
+
 #include "./toolbox.h"
 
 using namespace std;
-// Comile with:
+// Compile with:
 // g++ -Wl,--no-as-needed -g -Wall -std=c++11 -o barcodes2 barcodes2.cc -lpthread
 
 ////////////////////// routine for reading fastq //////////////////////
@@ -128,7 +130,8 @@ public:
 };
 
 // blocks of clusters
-UnionFind* uf[100];
+#define MAX_BLOCKS (100)
+UnionFind* uf[MAX_BLOCKS];
 ///////////////////////////////////////////////////////////////////////
 
 
@@ -137,8 +140,8 @@ UnionFind* uf[100];
 /////////////// grouping reads with similar beginnings ////////////////
 
 // check first 'barcodeWidth' positions and request identity of 'viewWidth' consecutive symbols
-const size_t barcodeWidth = 12;
-const size_t viewWidth    = 10;
+size_t barcodeWidth;// = 12;
+size_t viewWidth;//    = 10;
 
 // check all reads after the 'read' and combine those with similar beginnings
 bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
@@ -196,7 +199,7 @@ bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
     }
     return true;
 }
-// parent funcion of the thread
+// parent function of the thread
 bool processReads(size_t begin, size_t end, size_t block){
      // safety
      if( begin>=end ) return false;
@@ -251,12 +254,12 @@ map<int,LookUpTable> buildSearchHelper(const UnionFind &uf){
             patterns.insert( sequence[leader].substr(pos,viewWidth) );
         }
 
-        // do the same for every chiled
+        // do the same for every child
         for(auto &child : children){
             // split sequence beginning into search patterns
             for(size_t pos=0; pos<barcodeWidth-viewWidth; pos++){
                 if( pos>=MAX_ADAPTORS ){
-                    cout<<"Long record ... exiting"<<endl;
+                    cerr<<"Long record ... exiting"<<endl;
                     exit(0);
                 }
                 patterns.insert( sequence[child-1].substr(pos,viewWidth) );
@@ -347,13 +350,81 @@ bool mergeGroups(const UnionFind &group1, const UnionFind &group2){
 
 int main(int argc, char *argv[]){
 
-    if( readFile("./data.txt") ) return 0;
+    // parse the options
+    static struct option options[] = {
+       {"help",         0, 0, 'h'},
+       {"input",        1, 0, 'i'},
+       {"cores",        1, 0, 'c'},
+       {"nreads",       1, 0, 'n'},
+       {"threshold",    1, 0, 't'},
+       {"width",        1, 0, 'w'},
+       {"length",       1, 0, 'l'},
+       {0, 0, 0, 0}
+    };
+
+    cout<<"Running: ";
+    for(int arg=0; arg<argc; arg++) cout<<argv[arg]<<" ";
+    cout<<endl;
+
+    // defaults
+    char  *fastqFile    = 0;
+    size_t readsInBlock = 1000;
+    size_t nCores       = 1;
+    size_t threshold    = 1000;
+
+    // global defaults
+    barcodeWidth = 12; 
+    viewWidth    = 10; 
+
+    while( 1 ){
+       int index=0;
+       int c = getopt_long(argc, argv, "hi:c:n:t:w:l:",options, &index);
+       if( c == -1 ) break;
+       switch( tolower(c) ) {
+           case 'h':
+               cout<<"Usage:"<<endl;
+               cout<<"-h     ,   --help              show this message"<<endl;
+               cout<<"-i     ,   --input             FASTQ input file"<<endl;
+               cout<<"-c     ,   --cores             Number of CPU cores"<<endl;
+               cout<<"-n     ,   --nreads            Number of reads to process in one block"<<endl;
+               cout<<"-t     ,   --threshold         Minimal cluster size to write in a separate file"<<endl;
+               cout<<"-w     ,   --width             Number of consecutive matches in a pattern"<<endl;
+               cout<<"-l     ,   --length            Search window in the beginning of a sequence"<<endl;
+           break;
+           case 'i':
+               fastqFile = optarg;
+           break;
+           case 'c':
+               nCores = strtoul(optarg,NULL,0);
+           break;
+           case 'n':
+               readsInBlock = strtoul(optarg,NULL,0);
+           break;
+           case 't':
+               threshold = strtoul(optarg,NULL,0);
+           break;
+           case 'w':
+               barcodeWidth = strtoul(optarg,NULL,0);
+           break;
+           case 'l':
+               viewWidth = strtoul(optarg,NULL,0);
+           break;
+           default : cout<<"Type -h for help"<<endl; return 0;
+       }
+    }
+
+    if( !fastqFile ) return 0;
+
+    if( readFile(fastqFile) ) return 0;
     else cout<<"Reads: "<<nReads<<endl;
 
-    const size_t readsInBlock = 20000;
-    const size_t nBlocks = 19;
+    const size_t nBlocks = nReads/readsInBlock + 1;
+    if( nBlocks >= MAX_BLOCKS ){
+        cerr<<"Too many blocks requested (>"<<MAX_BLOCKS<<")"<<endl;
+        return 0;
+    }
 
-    const size_t maxNumThreads = 4;
+    const size_t maxNumThreads = nCores;
     std::future<bool> results [ maxNumThreads ];
 
     for(size_t block=0; block<nBlocks; block++){
@@ -375,7 +446,7 @@ int main(int argc, char *argv[]){
         results[freeThread] = std::async(std::launch::async, processReads, begin, end, block);
     }
 
-    // wait untill all threads finish
+    // wait until all threads finish
     for(size_t thr=0; thr<maxNumThreads; thr++)
         if( results[thr].valid() ) results[thr].wait();
 
@@ -411,70 +482,61 @@ int main(int argc, char *argv[]){
         }
     }
 
-    // wait untill all threads finish
+    // wait until all threads finish
     for(size_t thr=0; thr<maxNumThreads; thr++)
         if( results[thr].valid() ) results[thr].wait();
 
     cout<<"Found "<<joinedGroup->nClusters()<<" superclusters "<<endl;
 
 
-    ofstream output("output.csv");
-    if( !output ){ cout<<"Cannot open "<<"output.csv"<<endl; return 0; }
+    ofstream output("clustering.csv");
+    if( !output ){ cout<<"Cannot open clustering.csv"<<endl; return 0; }
 
-    const map<int, list<int> > &q = joinedGroup->clusters();
-    for(map<int, list<int> >::const_iterator iter = q.begin(); iter != q.end(); iter++){
-        int seed = iter->first;
-        size_t nClusters = 0;
-        for(list<int>::const_iterator clust = iter->second.begin(); clust != iter->second.end(); clust++){
-            size_t block = (*clust-1)/readsInBlock;
-            const map<int, list<int> > &w = uf[block]->clusters();
-            map<int, list<int> >::const_iterator e = w.find(*clust);
-            if( e != w.end() )
-                nClusters += e->second.size();
-            else { cerr<<"Problem"<<endl; exit(0); }
-        }
-        if( nClusters == 0 ) cerr<<" Error: empty cluster for "<<seed<<"!"<<endl;
-        output<<seed-1<<","<<nClusters<<endl;
-//        if(seed==1)
-//        for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++)
-//            output<<seed-1<<","<<*node-1<<endl;
-    }
-    output.close();
-
-/*
     ofstream ungrouped("ungrouped.fastq");
     if( !ungrouped ){ cout<<"Cannot open ungrouped.fastq"<<endl; return 0; }
 
-    for(map<int, list<int> >::const_iterator iter = clusters.begin(); iter != clusters.end(); iter++){
-        int seed = iter->first;
-        if( iter->second.size() == 0 ) cerr<<" Error: empty cluster for "<<seed<<"!"<<endl;
+    const map<int, list<int> > &superClusters = joinedGroup->clusters();
+    for(auto &sc : superClusters){
+        int leader = sc.first-1;
+        list<int> children;
 
-        if( iter->second.size() < 100 ){
-            for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
-                ungrouped<<identifier[*node-1]<<endl;
-                ungrouped<<sequence  [*node-1]<<endl;
-                ungrouped<<"+"<<endl;
-                ungrouped<<quality   [*node-1]<<endl;
+        for(auto clust : sc.second){
+            size_t block = (clust-1)/readsInBlock;
+            map<int, list<int> >::const_iterator c = uf[block]->clusters().find(clust);
+            if( c != uf[block]->clusters().end() )
+                children.insert( children.end(), c->second.begin(), c->second.end() );
+            else {
+                cerr<<"Problem"<<endl;
+                exit(0);
             }
-            continue;
         }
+        if( children.size() == 0 ) cerr<<" Error: empty cluster for "<<leader+1<<"!"<<endl;
+        output<<leader<<","<<children.size()<<endl;
 
-        stringstream fname;
-        fname<<"output"<<(seed-1)<<".fastq";
-        ofstream output(fname.str());
-        if( !output ){ cout<<"Cannot open "<<fname.str()<<endl; return 0; }
+        if( children.size() < threshold ){
+            for(auto read : children ){
+                ungrouped<<identifier[read-1]<<endl;
+                ungrouped<<sequence  [read-1]<<endl;
+                ungrouped<<"+"<<endl;
+                ungrouped<<quality   [read-1]<<endl;
+            }
+        } else {
 
-        for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
-            output<<identifier[*node-1]<<endl;
-            output<<sequence  [*node-1]<<endl;
-            output<<"+"<<endl;
-            output<<quality   [*node-1]<<endl;
+            stringstream fname;
+            fname<<"output"<<leader<<".fastq";
+            ofstream out(fname.str());
+            if( !out ){ cerr<<"Cannot open "<<fname.str()<<endl; return 0; }
+
+            for(auto read : children){
+                out<<identifier[read-1]<<endl;
+                out<<sequence  [read-1]<<endl;
+                out<<"+"<<endl;
+                out<<quality   [read-1]<<endl;
+            }
         }
-
-        output.close();
     }
-
+    output.close();
     ungrouped.close();
-*/
+
     return 0;
 }
