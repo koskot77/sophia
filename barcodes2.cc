@@ -368,7 +368,7 @@ int main(int argc, char *argv[]){
 
     // defaults
     char  *fastqFile    = 0;
-    size_t readsInBlock = 1000;
+    size_t readsInBlock = 10000;
     size_t nCores       = 1;
     size_t threshold    = 1000;
 
@@ -385,11 +385,11 @@ int main(int argc, char *argv[]){
                cout<<"Usage:"<<endl;
                cout<<"-h     ,   --help              show this message"<<endl;
                cout<<"-i     ,   --input             FASTQ input file"<<endl;
-               cout<<"-c     ,   --cores             Number of CPU cores"<<endl;
-               cout<<"-n     ,   --nreads            Number of reads to process in one block"<<endl;
-               cout<<"-t     ,   --threshold         Minimal cluster size to write in a separate file"<<endl;
-               cout<<"-w     ,   --width             Number of consecutive matches in a pattern"<<endl;
-               cout<<"-l     ,   --length            Search window in the beginning of a sequence"<<endl;
+               cout<<"-c     ,   --cores             Number of CPU cores [defailt=1]"<<endl;
+               cout<<"-n     ,   --nreads            Number of reads to process in one block [default=10000]"<<endl;
+               cout<<"-t     ,   --threshold         Minimal cluster size to write in a separate file [default=1000]"<<endl;
+               cout<<"-w     ,   --width             Number of consecutive matches in a pattern [default=10]"<<endl;
+               cout<<"-l     ,   --length            Search window in the beginning of a sequence [default=12]"<<endl;
            break;
            case 'i':
                fastqFile = optarg;
@@ -413,6 +413,7 @@ int main(int argc, char *argv[]){
        }
     }
 
+    if( nCores < 1 ) return 0;
     if( !fastqFile ) return 0;
 
     if( readFile(fastqFile) ) return 0;
@@ -433,14 +434,14 @@ int main(int argc, char *argv[]){
         size_t begin = readsInBlock*(block + 0);
         size_t end   = readsInBlock*(block + 1);
         if( end > nReads ) end = nReads;
-        cout<<"Block: "<<block<<" ["<<begin<<" - "<<end<<")"<<endl;
 
         // identify a free thread
         size_t freeThread = 0;
         for( ;  results[freeThread].valid() &&
-                results[freeThread].wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ;
-                freeThread++ )
-            if( freeThread == maxNumThreads-1 ) freeThread = 0;
+                results[freeThread].wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ; )
+            if( freeThread == maxNumThreads-1 ) freeThread = 0; else freeThread++;
+
+        cout<<"Processing block: "<<block<<" ["<<begin<<" - "<<end<<")"<<endl;
 
         // submit
         results[freeThread] = std::async(std::launch::async, processReads, begin, end, block);
