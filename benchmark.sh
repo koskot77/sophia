@@ -18,10 +18,8 @@ cd sff2fastq && make && cd ../ && make
 ./sff2fastq/sff2fastq -o test.fastq input.sff
 
 echo "Running clustering:"
-time ./barcodes2 -i testReads.fastq
+time ./barcodes2 -i testReads.fastq -c4 -n11000
 
-echo "The most frequent barcode candidate is:"
-./analysis 
-
-sed -e 's|,| |g' output.csv | awk 'BEGIN{m=0;p=""} $1!~/ID/{if(m<$3){m=$3;p=$2}} END{print p" "m}'
+echo "The most frequent barcode candidate are:"
+for i in output*.fastq ; do ./analysis2 $i 12 9 && sed -e 's|,| |g' output.csv | awk 'BEGIN{m=0;p=""} $1!~/ID/{if(m<$3){m=$3;p=$2}} END{print p" "m}' ; done
 
