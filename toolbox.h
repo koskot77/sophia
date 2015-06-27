@@ -155,7 +155,7 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 
 // Let us build a classical hash function around '%' operator and construct a look-up table
 //#define BUCKETS (10007)       // a moderate size prime number
-#define BUCKETS (301)       // a moderate size prime number
+#define BUCKETS (301)         // a small prime number
 #define MAX_COLLISIONS (10)   // allow up to 100 collisions
 class LookUpTable {
 private:
@@ -163,6 +163,7 @@ private:
     size_t             lengths[MAX_ADAPTORS+1];  // we should also carry around the length of original sequence in case it was ending with 'T's
     size_t **table; //[BUCKETS][MAX_COLLISIONS]; // look-up table; stores 0 for empty buckets or an index of a potential match for a given hash value
     size_t  *nCollisions; //[BUCKETS];           // number of collisions (should mostly be 0)
+    size_t   nValues;                            // number of elements in the lut
 
 public:
     // performance
@@ -175,6 +176,8 @@ public:
         maxCollisions = max;
         return sum;
     }
+    //
+    size_t size(void) const { return nValues; }
 
     // quick search function returns MAX_ADAPTORS if requested number is not among the known keys, otherwise key index (start from 0)
     size_t find(unsigned long long number, size_t &length) const {
@@ -208,7 +211,11 @@ public:
     // check if any of the patterns in this LUT match any of the patterns in the reference LUT
     bool match(const LookUpTable &lut) const {
         size_t length = 0;
+//        for(size_t k=1; k<=MAX_ADAPTORS; k++)
+//            if( lengths[k] && lut.find(values[k],length)!=MAX_ADAPTORS ) break;
+
         for(size_t k=1; k<=MAX_ADAPTORS && lengths[k] && lut.find(values[k],length)==MAX_ADAPTORS; k++);
+
         if( length ) return true;
         return false;
     }
@@ -228,6 +235,8 @@ public:
             table[k] = new size_t [MAX_COLLISIONS];
             memcpy(table[k], master.table[k], sizeof(size_t)*MAX_COLLISIONS);
         }
+
+        nValues = master.nValues;
     }
 
     // construct the table from the set of keys (key's index serves the value)
@@ -257,6 +266,8 @@ public:
             bzero(table[k], sizeof(size_t)*MAX_COLLISIONS);
         }
 
+        nValues = 0;
+
         // build hash values for the padded keys
         for(size_t k=0; k<MAX_ADAPTORS; k++){
             size_t length = strlen( keys[k] );
@@ -268,6 +279,7 @@ public:
                 // remember the sequence in numeric form
                 lengths[k+1] = length;
                 values [k+1] = coreCode; 
+                nValues++;
 
                 // now create all new padding combinations and add those to the table
                 for(size_t padCode=0; padCode<(0x1<<((maxKeyLength - length)*2)); padCode++){

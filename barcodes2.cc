@@ -127,7 +127,7 @@ public:
     }
 };
 
-// subsets of clusters to be combined in superclusters (one per thread)
+// blocks of clusters
 UnionFind* uf[100];
 ///////////////////////////////////////////////////////////////////////
 
@@ -136,49 +136,9 @@ UnionFind* uf[100];
 
 /////////////// grouping reads with similar beginnings ////////////////
 
-bool isLUTgood(const LookUpTable &lut, const char matchPattern[MAX_ADAPTORS][MAX_LENGTH]){
-    bool isGood = true;
-
-    // check quality of the hash table
-    size_t maxCollisions = 0;
-    lut.countCollisions( maxCollisions );
-    if( maxCollisions >= MAX_COLLISIONS ){
-        for(size_t k=0; k<MAX_ADAPTORS; k++){
-            size_t length = strlen( matchPattern[k] );
-            if( length > 0 ){
-                unsigned short errorPos = 0;
-                unsigned long long coreCode = sequence2number(matchPattern[k],strlen(matchPattern[k]),errorPos);
-                printf("%ld: %s, bucket: %lld\n",k,matchPattern[k],coreCode % BUCKETS);
-            }
-        }
-        isGood = false;
-    }
-
-    return isGood;
-}
-
 // check first 'barcodeWidth' positions and request identity of 'viewWidth' consecutive symbols
 const size_t barcodeWidth = 12;
 const size_t viewWidth    = 10;
-/*
-size_t chop2patterns(const char *seq, char matchPattern[MAX_ADAPTORS][MAX_LENGTH]){
-    // do nothing for short sequences
-    if( strlen(seq) < barcodeWidth ) return 0;
-    // clear
-    bzero(matchPattern, sizeof(matchPattern));
-    // slide along the beginning of the sequence 
-    size_t  nPatterns = 0;
-    for(  ; nPatterns < barcodeWidth-viewWidth; nPatterns++){
-        if( nPatterns>=MAX_ADAPTORS ){
-            cerr<<"Long record ... exiting"<<endl;
-            return 0;
-        }
-        strncpy(matchPattern[nPatterns], seq + nPatterns, viewWidth);
-        matchPattern[nPatterns][viewWidth] = '\0';
-    }
-    return nPatterns;
-}
-*/
 
 // check all reads after the 'read' and combine those with similar beginnings
 bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
@@ -197,18 +157,16 @@ bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
 
     for(size_t i=0; i<barcodeWidth-viewWidth; i++){
         if( i>=MAX_ADAPTORS ){ cout<<"Long record ... exiting"<<endl; return false; }
-        strncpy(matchPattern[i],refSeq+i,viewWidth);
-        matchPattern[i][viewWidth] = '\0';
+        strncpy( matchPattern[ i ], refSeq+i, viewWidth );
+        matchPattern[ i ][ viewWidth ] = '\0';
     }
-
-//    size_t nPatterns = chop2patterns(refSeq, matchPattern);
-//    // do nothing for short sequences (not an error)
-//    if( nPatterns==0 ) return true;
 
     // build the hash from the patterns
     LookUpTable lookUp(matchPattern);
     // check if it is good
-    if( !isLUTgood(lookUp,matchPattern) ) return false; // do not tolerate broken LUT
+    size_t maxCollisions = 0;
+    lookUp.countCollisions( maxCollisions );
+    if( maxCollisions >= MAX_COLLISIONS ) return false; // do not tolerate broken LUT
 
     // look for other reads matching any of the patterns of the reference record
     for(size_t read2=read+1; read2<till && read2<nReads; read2++){
@@ -226,8 +184,8 @@ bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
 
         NumericSequence numSeq(beginning);
 
-        for(size_t i=0; i<barcodeWidth-viewWidth; i++){
-            unsigned long long view = numSeq.view(i,viewWidth);
+        for(size_t pos=0; pos<barcodeWidth-viewWidth; pos++){
+            unsigned long long view = numSeq.view(pos,viewWidth);
             size_t matchLength = viewWidth;
             if( lookUp.find(view,matchLength) != MAX_ADAPTORS ){ // found a match
                 int cluster1 = uf[block]->findCluster(read+1);
@@ -238,18 +196,18 @@ bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
     }
     return true;
 }
-
+// parent funcion of the thread
 bool processReads(size_t begin, size_t end, size_t block){
-
+     // safety
      if( begin>=end ) return false;
-
+     // safety once again
      if( uf[block] ){
          cout<<"More than one call to process block #"<<block<<endl;
          return false;
      }
-
-     uf[block] = new UnionFind(begin+1, end+1);
-
+     // initialize data structure for clustering
+     uf[block] = new UnionFind(begin+1, end+1); //remember to start numbering from 1
+     // build clusters
      for(size_t read=begin; read<end; read++)
          if( !groupMatchesFor(read,block,end) ) return false;
 
@@ -258,88 +216,134 @@ bool processReads(size_t begin, size_t end, size_t block){
 ///////////////////////////////////////////////////////////////////////
 
 
-/////////// merge matching clusters from different groups /////////////
+/////////////// merge clusters from different blocks //////////////////
 
-// build a search machinery
+// for each cluster leader of the block build a look up table 
 map<int,LookUpTable> buildSearchHelper(const UnionFind &uf){
-    // clusters of the first group
+    // all clusters for this block
     const map<int, list<int> > &clusters = uf.clusters();
 
-    // assign every cluster with a search helper
+    // association of cluster leader and lut built of all of the search patterns
     map<int,LookUpTable> retval;
 
-    // initialize the search helpers
-    for(map<int, list<int> >::const_iterator iter = clusters.begin(); iter != clusters.end(); iter++){
-        int seed = iter->first;
+    // for each cluster
+    for(auto &clust : clusters){
 
-        // do nothing for short sequences
-        const char *seq = sequence[seed-1].c_str();
-        if( strlen(seq) < barcodeWidth ) continue;
+        // cluster leader
+        int leader = clust.first - 1; // remember that UnionFind numeration starts from 1
+        const list<int> &children = clust.second;
 
-        size_t nClusters = iter->second.size();
-        if( nClusters == 0 ) cerr<<" Error: empty cluster for "<<seed<<"!"<<endl;
-        // construct a set of search patterns
-        set<string> barcodeCandidates;
-        // start with the parent read of the cluster
-        const char *seedSeq = sequence[seed-1].c_str();
-        // split the beginning into search views
-        for(size_t i=0; i<barcodeWidth-viewWidth; i++){
-            if( i>=MAX_ADAPTORS ){ cout<<"Long record ... exiting"<<endl; exit(0); }
-            char tmp[viewWidth+1];
-            strncpy(tmp,seedSeq+i,viewWidth);
-            tmp[viewWidth] = '\0';
-            barcodeCandidates.insert(tmp);
+        // safety
+        if( sequence[leader].length() < barcodeWidth ) continue;
+        if( children.size() == 0 ){
+            cerr<<" Error: empty cluster for "<<leader<<"!"<<endl;
+            exit(0);
         }
-        // do the same for every read from the cluster
-        for(list<int>::const_iterator node = iter->second.begin(); node != iter->second.end(); node++){
-            const char *seq = sequence[*node-1].c_str();
-            // split the beginning into search views
-            for(size_t i=0; i<barcodeWidth-viewWidth; i++){
-                if( i>=MAX_ADAPTORS ){ cout<<"Long record ... exiting"<<endl; exit(0); }
-                char tmp[viewWidth+1];
-                strncpy(tmp,seq+i,viewWidth);
-                tmp[viewWidth] = '\0';
-                barcodeCandidates.insert(tmp);
+
+        // construct a set of search patterns
+        set<string> patterns;
+        // start with the leader 
+        for(size_t pos=0; pos<barcodeWidth-viewWidth; pos++){
+            if( pos>=MAX_ADAPTORS ){
+                cerr<<"Long record ... exiting"<<endl;
+                exit(0);
+            }
+            patterns.insert( sequence[leader].substr(pos,viewWidth) );
+        }
+
+        // do the same for every chiled
+        for(auto &child : children){
+            // split sequence beginning into search patterns
+            for(size_t pos=0; pos<barcodeWidth-viewWidth; pos++){
+                if( pos>=MAX_ADAPTORS ){
+                    cout<<"Long record ... exiting"<<endl;
+                    exit(0);
+                }
+                patterns.insert( sequence[child-1].substr(pos,viewWidth) );
             }
         }
-        if( barcodeCandidates.size() >= MAX_ADAPTORS ){ cout<<"Too many search patterns: "<<barcodeCandidates.size()<<endl; exit(0); } 
-        // convert the barcodeCandidates into the format accepted by the LookUpTable 
+        // safety
+        if( patterns.size() >= MAX_ADAPTORS ){
+            cerr<<"Too many search patterns: "<<patterns.size()<<endl;
+            exit(0);
+        } 
+
+        // convert patterns into the format accepted by the LookUpTable 
         char matchPattern[MAX_ADAPTORS][MAX_LENGTH];
         bzero(matchPattern, sizeof(matchPattern));
         size_t p=0;
-        for(set<string>::const_iterator cand = barcodeCandidates.begin(); cand != barcodeCandidates.end(); cand++,p++){
-            strncpy(matchPattern[p],cand->c_str(),viewWidth);
+        for(auto &pat : patterns){
+            strncpy(matchPattern[p],pat.c_str(),viewWidth);
             matchPattern[p][viewWidth] = '\0';
+            p++;
         }
-        pair< map<int,LookUpTable>::iterator, bool> res = retval.insert(pair<int,LookUpTable>(seed,LookUpTable(matchPattern)));
-        if( !res.second ){ cout<<"Long record ... exiting"<<endl; exit(0); }
+
+        pair< map<int,LookUpTable>::iterator, bool> res = retval.insert( pair<int,LookUpTable>( leader+1, LookUpTable(matchPattern) ) );
+        if( !res.second ){ cerr<<"Duplicate leader ... exiting"<<endl; exit(0); }
 
         // check quality of the hash table
         size_t maxCollisions = 0;
         res.first->second.countCollisions( maxCollisions );
         if( maxCollisions >= MAX_COLLISIONS ){
-            for(size_t k=0; k<MAX_ADAPTORS; k++){
-                size_t length = strlen( matchPattern[k] );
-                if( length > 0 ){
-                    unsigned short errorPos = 0;
-                    unsigned long long coreCode = sequence2number(matchPattern[k],strlen(matchPattern[k]),errorPos);
-                    printf("%ld: %s, bucket: %lld\n",k,matchPattern[k],coreCode % BUCKETS);
-                }
-            }
+//            for(size_t k=0; k<MAX_ADAPTORS; k++){
+//                size_t length = strlen( matchPattern[k] );
+//                if( length > 0 ){
+//                    unsigned short errorPos = 0;
+//                    unsigned long long coreCode = sequence2number(matchPattern[k],strlen(matchPattern[k]),errorPos);
+//                    printf("%ld: %s, bucket: %lld\n",k,matchPattern[k],coreCode % BUCKETS);
+//                }
+//            }
             exit(0); // do not tolerate broken LUT
         }
     }
 
     return retval;
 }
-/*
-UnionFind mergeGroups(UnionFind &group1, UnionFind &group2){
 
-    map<int,LookUpTable> searchHelper = buildSearchHelper(group1);
+// mutex for the data stracture preventing data race
+std::mutex mtx;
+UnionFind *joinedGroup;
 
+bool mergeGroups(const UnionFind &group1, const UnionFind &group2){
+
+    // build helpers: relatively fast, but costs memory -> do it on demand and destroy after using
+    map<int,LookUpTable> searchHelper1 = buildSearchHelper(group1);
+    map<int,LookUpTable> searchHelper2 = buildSearchHelper(group2);
+
+    // for every cluster of the first group 
+    for(auto &cluster1 : searchHelper1){
+
+        size_t leader1           = cluster1.first;
+        const  LookUpTable &lut1 = cluster1.second;
+
+        // compare it with every cluster of the second group
+        for(auto &cluster2 : searchHelper2){
+
+            size_t leader2           = cluster2.first;
+            const  LookUpTable &lut2 = cluster2.second;
+
+            bool match = false;
+            if( lut1.size() > lut2.size() )
+                match = lut2.match( lut1 );
+            else
+                match = lut1.match( lut2 );
+
+            if( match ){
+                mtx.lock();
+                int cluster1 = joinedGroup->findCluster(leader1);
+                int cluster2 = joinedGroup->findCluster(leader2);
+                if( cluster1 != cluster2 ) joinedGroup->joinClusters(cluster1,cluster2);
+                mtx.unlock();
+            }
+        }
+    }
+
+    return true;
 }
-*/
 ///////////////////////////////////////////////////////////////////////
+
+
+
 
 int main(int argc, char *argv[]){
 
@@ -380,48 +384,44 @@ int main(int argc, char *argv[]){
         cout<<"Found "<<uf[block]->nClusters()<<" clusters in block #"<<block<<endl;
 
     // group clusters together 
-    list<int> parentNodes;
+    list<int> leaders;
     for(size_t block=0; block<nBlocks; block++){
         const map<int, list<int> > &clusters = uf[block]->clusters();
-        for(map<int, list<int> >::const_iterator clust = clusters.begin(); clust != clusters.end(); clust++)
-            parentNodes.push_back(clust->first);
+        for(auto clust : clusters)
+            leaders.push_back(clust.first);
     }
 
-    UnionFind superClusters(parentNodes);
+    joinedGroup = new UnionFind(leaders);
 
-    map<int,LookUpTable> searchHelper[nBlocks];
+    for(size_t block1=0; block1+1<nBlocks; block1++){
+        cout<<"Grouping block "<<block1<<endl;
+        for(size_t block2=block1+1; block2<nBlocks; block2++){
 
-    for(size_t block=0; block<nBlocks; block++){
-        searchHelper[block] = buildSearchHelper(*(uf[block]));
-        cout<<"SearchHelper for "<<block<<" is generated"<<endl;
-    }
+            // identify a free thread
+            size_t freeThread = 0;
+            for( ;  results[freeThread].valid() &&
+                    results[freeThread].wait_for(std::chrono::milliseconds(100)) != std::future_status::ready ;
+                    freeThread++ )
+                if( freeThread == maxNumThreads-1 ) freeThread = 0;
 
-    for(size_t block=0; block+1<nBlocks; block++){
-        for(map<int,LookUpTable>::const_iterator iter = searchHelper[block].begin(); iter != searchHelper[block].end(); iter++){
+            cout<<" with block "<<block2<<endl;
 
-            for(size_t block2=block+1; block2<nBlocks; block2++){
-
-                for(map<int,LookUpTable>::const_iterator iter2 = searchHelper[block2].begin(); iter2 != searchHelper[block2].end(); iter2++){
-
-                    if( iter->second.match( iter2->second ) ){
-                        int cluster1 = superClusters.findCluster(iter ->first);
-                        int cluster2 = superClusters.findCluster(iter2->first);
-                        if( cluster1 != cluster2 ) superClusters.joinClusters(cluster1,cluster2);
-                    }
-
-                }
-            }
-//            cout<<iter->first<<" done "<<endl;
+            // submit
+            results[freeThread] = std::async(std::launch::async, mergeGroups, *uf[block1], *uf[block2]);
         }
-        cout<<" Block "<<block<<" done"<<endl;
     }
 
-    cout<<"Found "<<superClusters.nClusters()<<" superclusters "<<endl;
+    // wait untill all threads finish
+    for(size_t thr=0; thr<maxNumThreads; thr++)
+        if( results[thr].valid() ) results[thr].wait();
+
+    cout<<"Found "<<joinedGroup->nClusters()<<" superclusters "<<endl;
 
 
     ofstream output("output.csv");
     if( !output ){ cout<<"Cannot open "<<"output.csv"<<endl; return 0; }
-    const map<int, list<int> > &q = superClusters.clusters();
+
+    const map<int, list<int> > &q = joinedGroup->clusters();
     for(map<int, list<int> >::const_iterator iter = q.begin(); iter != q.end(); iter++){
         int seed = iter->first;
         size_t nClusters = 0;
