@@ -16,6 +16,7 @@
   <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  
   
   <script src="../DevDataProducts/libraries/widgets/polycharts/js/polychart2.standalone.js"></script>
+
   <!-- Grab CDN jQuery, fall back to local if offline -->
   <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.min.js"></script>
   <script>window.jQuery || document.write('<script src="../DevDataProducts/libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
@@ -23,7 +24,6 @@
     src="../DevDataProducts/libraries/frameworks/io2012/js/require-1.0.8.min.js">
   </script>
   
-
 
 </head>
 <body style="opacity: 0">
@@ -218,10 +218,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart67d25aafc84e' class = 'rChart polycharts'></div>
+<div id = 'chart434b79f3bd06' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart67d25aafc84e",
+ "dom": "chart434b79f3bd06",
 "width":    850,
 "height":    350,
 "layers": [
@@ -251,16 +251,14 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "log2(# of unique patterns)",
-"id": "chart67d25aafc84e" 
+"id": "chart434b79f3bd06" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart67d25aafc84e = polyjs.chart(chartParams);
+    var graph_chart434b79f3bd06 = polyjs.chart(chartParams);
 </script>
 </div>
-
-<br>
 
 <p>Number of unique combinations of the 4 letters grows as \(4^L\) until \(L\)~10 where it slows</p>
 
@@ -334,10 +332,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart67d27843517d' class = 'rChart polycharts'></div>
+<div id = 'chart434b314970da' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart67d27843517d",
+ "dom": "chart434b314970da",
 "width":    850,
 "height":    300,
 "layers": [
@@ -367,12 +365,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "Cluster profile (summed up for all clusters)",
-"id": "chart67d27843517d" 
+"id": "chart434b314970da" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart67d27843517d = polyjs.chart(chartParams);
+    var graph_chart434b314970da = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -386,13 +384,16 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <slide class="class" id="id" style="background:;">
   <hgroup>
-    <h2>Analysis: &quot;barcodes&quot;</h2>
+    <h2>What was I really expected to demonstrate?</h2>
   </hgroup>
   <article data-timings="">
-    <p>Wet labs sequence several samples in one go <a href="http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf">tagging each sample with unique &quot;barcode&quot;</a></p>
+    <p>I failed the test because I did not identify there were several samples mixed in a single file</p>
 
-<p>I de-multiplex the data by clustering reads with 10 consecutive matches within 15 symbol-wide window in the beginning of every sequence
-(<a href="https://github.com/koskot77/sophia/blob/master/barcodes.cc">barcodes.cc</a>); that yields 4 clusters:</p>
+<p>Wet labs sequence multiple samples in one run <a href="http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf">tagging each sample with a &quot;barcode&quot;</a></p>
+
+<p>De-multiplexing such data can be achieved by clustering the reads with similar beginnings</p>
+
+<p>Grouping sequences with 10 consecutive matches within first 15 symbols (<a href="https://github.com/koskot77/sophia/blob/master/barcodes2.cc">barcodes2.cc</a>) yields:</p>
 
 <table><thead>
 <tr>
@@ -436,11 +437,21 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
     <h2>Summary</h2>
   </hgroup>
   <article data-timings="">
-    <p><br></p>
+    <p>Obviously, twisting the data in various ways cannot replace a tiny bit of knowledge
+of what are the stories that the data can possibly tell us. I can code an efficient
+search algorithm that runs reasonably fast on a modest laptop, but I did not know
+anything about data multiplexing until I have got an evaluation of my work.</p>
 
-<p>Running time of my algorithms allows to perform this analysis on a modest laptop</p>
+<p>Few other points in the evaluation are still a mystery for me:
+&quot;The data is generated with certain enrichment technology and certain sequencers.&quot;
+If only I knew what are the implications of using different sequencers and why would
+that be important.</p>
 
-<p>Further optimization is also possible</p>
+<p>I did my best to jump on NGS data analysis, but I only learned that little things
+that I am not aware of can make a big difference.</p>
+
+<p>Nonetheless, I am happy I had a chance to play with some decent size datasets
+and prove that I know how important efficiency is.</p>
 
 <!--
 Analysed reads: 
@@ -459,10 +470,7 @@ Average read size:
 All the reads group in 1992 clusters 
 -->
 
-<p><br>
-Obviously, twisting the data in various ways cannot replace a tiny bit of knowledge
-of what are the stories that the data can possibly tell us. I did my best to jump on
-NGS data analysis, but I only learned that I need to learn more ...</p>
+<p><br></p>
 
   </article>
   <!-- Presenter Notes -->
@@ -522,7 +530,7 @@ NGS data analysis, but I only learned that I need to learn more ...</p>
     </li>
     <li>
       <a href="#" target="_self" rel='tooltip' 
-        data-slide=9 title='Analysis: &quot;barcodes&quot;'>
+        data-slide=9 title='What was I really expected to demonstrate?'>
          9
       </a>
     </li>
