@@ -35,7 +35,7 @@ int readFile(const char *fileName){
 
     ifstream input(fileName);
 
-    if(!input){ cout<<"Cannot open "<<fileName<<endl; return -1; }
+    if(!input){ cerr<<"Cannot open "<<fileName<<endl; return -1; }
 
     while( !input.eof() ){
 
@@ -159,7 +159,7 @@ bool groupMatchesFor(size_t read, size_t block, size_t till=nReads){
     bzero(matchPattern, sizeof(matchPattern));
 
     for(size_t i=0; i<barcodeWidth-viewWidth; i++){
-        if( i>=MAX_ADAPTORS ){ cout<<"Long record ... exiting"<<endl; return false; }
+        if( i>=MAX_ADAPTORS ){ cerr<<"Long record ... exiting"<<endl; return false; }
         strncpy( matchPattern[ i ], refSeq+i, viewWidth );
         matchPattern[ i ][ viewWidth ] = '\0';
     }
@@ -205,7 +205,7 @@ bool processReads(size_t begin, size_t end, size_t block){
      if( begin>=end ) return false;
      // safety once again
      if( uf[block] ){
-         cout<<"More than one call to process block #"<<block<<endl;
+         cerr<<"More than one call to process block #"<<block<<endl;
          return false;
      }
      // initialize data structure for clustering
@@ -388,8 +388,9 @@ int main(int argc, char *argv[]){
                cout<<"-c     ,   --cores             Number of CPU cores [defailt=1]"<<endl;
                cout<<"-n     ,   --nreads            Number of reads to process in one block [default=10000]"<<endl;
                cout<<"-t     ,   --threshold         Minimal cluster size to write in a separate file [default=1000]"<<endl;
-               cout<<"-w     ,   --width             Number of consecutive matches in a pattern [default=10]"<<endl;
-               cout<<"-l     ,   --length            Search window in the beginning of a sequence [default=12]"<<endl;
+               cout<<"-l     ,   --length            Number of consecutive matches in a pattern [default=10]"<<endl;
+               cout<<"-w     ,   --width             Search window in the beginning of a sequence [default=12]"<<endl;
+               return 0;
            break;
            case 'i':
                fastqFile = optarg;
@@ -415,6 +416,10 @@ int main(int argc, char *argv[]){
 
     if( nCores < 1 ) return 0;
     if( !fastqFile ) return 0;
+    if( barcodeWidth <= viewWidth ){
+        cerr<<" viewWidth (-l) < barcodeWidth (-w) make sure "<<endl;
+        return 0;
+    }
 
     if( readFile(fastqFile) ) return 0;
     else cout<<"Reads: "<<nReads<<endl;
