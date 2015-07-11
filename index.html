@@ -16,7 +16,6 @@
   <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  
   
   <script src="../DevDataProducts/libraries/widgets/polycharts/js/polychart2.standalone.js"></script>
-
   <!-- Grab CDN jQuery, fall back to local if offline -->
   <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.min.js"></script>
   <script>window.jQuery || document.write('<script src="../DevDataProducts/libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
@@ -24,6 +23,7 @@
     src="../DevDataProducts/libraries/frameworks/io2012/js/require-1.0.8.min.js">
   </script>
   
+
 
 </head>
 <body style="opacity: 0">
@@ -36,6 +36,9 @@
     <h2></h2>
     <p>Khristian Kotov<br/></p>
   </hgroup>
+    <a href="https://github.com/kkotov/talks/zipball/gh-pages" class="example">
+     Download
+    </a>
   <article></article>  
 </slide>
     
@@ -131,7 +134,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <li>fast machinery that compares the sequences and measures similarity
 
 <ul>
-<li>comparison of all-to-all reads takes \(O(N^2) \sim O(10^{10})\) iterations! </li>
+<li>comparison of all-to-all reads takes \(\mathcal{O}(N^2) \sim \mathcal{O}(10^{10})\) iterations! </li>
 </ul></li>
 <li>algorithm to merge similar sequences into clusters</li>
 </ul>
@@ -188,7 +191,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <p>Search for similar reads is implemented in <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc">overlap.cc</a> file:</p>
 
 <ul>
-<li><span style="color:blue;">findMatches</span> preprocessing step runs for all \(O(N^2)\) pair combinations:
+<li><span style="color:blue;">findMatches</span> preprocessing step runs for all \(\mathcal{O}(N^2)\) pair combinations:
 
 <ul>
 <li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns </li>
@@ -218,10 +221,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart434b79f3bd06' class = 'rChart polycharts'></div>
+<div id = 'chart1f26313974a9' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart434b79f3bd06",
+ "dom": "chart1f26313974a9",
 "width":    850,
 "height":    350,
 "layers": [
@@ -251,12 +254,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "log2(# of unique patterns)",
-"id": "chart434b79f3bd06" 
+"id": "chart1f26313974a9" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart434b79f3bd06 = polyjs.chart(chartParams);
+    var graph_chart1f26313974a9 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -326,16 +329,16 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
     <h2>Analysis: grouping similar records</h2>
   </hgroup>
   <article data-timings="">
-    <p>Grouping reads with up to 9 mismatches/gaps apart (hamming distance) gives 1662 clusters</p>
+    <p>Grouping reads with up to 9 mismatches/gaps apart (edit distance) gives 1662 clusters</p>
 
 <p>Cluster density diminishes slowly from center to periphery:</p>
 
 <div align="center">
 
-<div id = 'chart434b314970da' class = 'rChart polycharts'></div>
+<div id = 'chart1f264b9e5756' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart434b314970da",
+ "dom": "chart1f264b9e5756",
 "width":    850,
 "height":    300,
 "layers": [
@@ -357,7 +360,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
  "min":      0,
 "max":     11,
 "numticks":     11,
-"title": "Hamming distance" 
+"title": "Edit distance" 
 },
 "y": {
  "title": "" 
@@ -365,12 +368,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "Cluster profile (summed up for all clusters)",
-"id": "chart434b314970da" 
+"id": "chart1f264b9e5756" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart434b314970da = polyjs.chart(chartParams);
+    var graph_chart1f264b9e5756 = polyjs.chart(chartParams);
 </script>
 </div>
 
