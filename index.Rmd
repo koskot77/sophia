@@ -85,7 +85,7 @@ For these checks I need:
  * efficient engine to search patterns in the data
   * avoid string comparisons in favor of hashing
  * fast machinery that compares the sequences and measures similarity
-  * comparison of all-to-all reads takes $O(N^2) \sim O(10^{10})$ iterations! 
+  * comparison of all-to-all reads takes $\mathcal{O}(N^2) \sim \mathcal{O}(10^{10})$ iterations! 
  * algorithm to merge similar sequences into clusters
 
 --- .class #id
@@ -117,7 +117,7 @@ Pattern frequency test is implemented in [analysis.cc](https://github.com/koskot
 [counts](https://github.com/koskot77/sophia/blob/master/analysis.cc#L126:L127) encountered patterns
 
 Search for similar reads is implemented in [overlap.cc](https://github.com/koskot77/sophia/blob/master/overlaps.cc) file:
- * <span style="color:blue;">findMatches</span> preprocessing step runs for all $O(N^2)$ pair combinations:
+ * <span style="color:blue;">findMatches</span> preprocessing step runs for all $\mathcal{O}(N^2)$ pair combinations:
   * [chops a reference read](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69) into search patterns 
   * checks all other reads and remember those [firing any of the search patterns](https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96)
  * <span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
@@ -133,8 +133,8 @@ Clustering the reads is completed executing `./cluster output.csv CUTOFF`
 
 To warm up, let's count number of unique patterns of a certain length $L$ found in data:
 
-<center>
-```{r nvd3plot, results = 'asis', comment = NA, message = F, echo = F}
+<div align="center">
+```{r nvd3plot, results = 'asis', comment = NA, message = F, echo = F, fig.align='center'}
 
 #if( !file.exists("sophia/") ){
 #   system("git clone https://github.com/koskot77/sophia.git")
@@ -176,7 +176,7 @@ p1$guides(
 )
 p1$show('inline')
 ```
-</center>
+</div>
 
 Number of unique combinations of the 4 letters grows as $4^L$ until $L$~10 where it slows
 
@@ -218,11 +218,11 @@ if( !file.exists("clusters9.csv") ){
 cl <- read.csv(file='clusters9.csv',header=T,sep=',')
 ```
 
-Grouping reads with up to 9 mismatches/gaps apart (hamming distance) gives `r length( unique(cl$read1) )` clusters
+Grouping reads with up to 9 mismatches/gaps apart (edit distance) gives `r length( unique(cl$read1) )` clusters
 
 Cluster density diminishes slowly from center to periphery:
 
-<center>
+<div align="center">
 ```{r results = 'asis', comment = NA, message = F, echo = F}
 
 p2 <- rPlot(x="bin(distance,1)", y="count(distance)", data=cl, type="bar")
@@ -235,7 +235,7 @@ p2$guides(
     min = 0,
     max = 11,
     numticks = 11,
-    title = "Hamming distance"
+    title = "Edit distance"
   ),
   y = list(
     title = ""
@@ -243,7 +243,7 @@ p2$guides(
 )
 p2$show('inline')
 ```
-</center>
+</div>
 
 ```{r results = 'asis', comment = NA, message = F, echo = F}
 if( !file.exists("clusters8.csv") ){
@@ -259,34 +259,77 @@ Using 8 for the cutoff removes the excess and results in `r length( unique(cl$re
 --- .class #id
 
 
-## Analysis: "barcodes"
+## What was I really expected to demonstrate?
 
-Wet labs sequence several samples in one go [tagging each sample with unique "barcode"](http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf)
+I failed the test because I did not identify there were several samples mixed in a single file
 
-I de-multiplex the data by clustering reads with 10 consecutive matches within 15 symbol-wide window in the beginning of every sequence
-([barcodes.cc](https://github.com/koskot77/sophia/blob/master/barcodes.cc)); that yields 4 clusters:
+Wet labs sequence multiple samples in one run [tagging each sample with a "barcode"](http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf)
 
-cluster |   barcode   | frequency |
---------|-------------|-----------|
-1       | `TCGCGTGTC` |   19.3K   |
-2       | `TATCGCGAG` |   20.7K   |
-3       | `GTGTCTCTA` |   21.4K   |
-4       | `TCAGACACG` |   21.9K   |
+De-multiplexing such data can be achieved by clustering the reads with similar beginnings
 
-<br>
+Grouping sequences with 10 consecutive matches within first 15 symbols ([barcodes2.cc](https://github.com/koskot77/sophia/blob/master/barcodes2.cc)) yields:
+
+cluster |      barcode      | frequency |
+--------|-------------------|-----------|
+1       | `.{0,2}TCGCGTGTC` |   19.3K   |
+2       | `.{0,2}TATCGCGAG` |   20.7K   |
+3       | `.{0,2}GTGTCTCTA` |   21.4K   |
+4       | `.{0,2}TCAGACACG` |   21.9K   |
+
+(`.{0,2}` prefix allows any 0, 1, or 2 symbols in the beginning of a barcode) <!--, usually #1 and #3 start with `C` and #2 and #4 with 'A')-->
 
 Only about 0.5K reads are left out of these 4 major clusters
 
+<!-- [A simple cross-check in Galaxy](https://usegalaxy.org/u/koskot77/w/sophia1-1) with the Barcode Splitter tool confirms all these findings -->
+
 --- .class #id
 
+## What these data tells us?
+
+Aligning the reads to human genome reveals a targeted sequencing of these genes:
+
+chromosome  | gene  |     id    |         description          |
+------------|-------|-----------|------------------------------|
+chr17       | BRCA1 | NM_027676 | Breast cancer 1, early onset |
+chr13       | BRCA2 | NM_000059 | Breast cancer 2, early onset |
+
+<br>
+
+[A simple workflow](https://usegalaxy.org/u/koskot77/w/sophia3) identifies [25](hg19vars.vcf)([48](hg38vars.vcf)) high quality variants wrt. hg19(hg38) reference genome.
+
+Some of these can be found in dbSNP annotation database:
+[rs3752451](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3752451),
+[rs1801406](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1801406),
+[rs206075](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206075),
+[rs206076](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206076),
+[rs206080](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206080),
+[rs169547](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=169547),
+[rs9534262](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=9534262),
+[rs3092994](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3092994),
+[rs1799966](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1799966),
+[rs1060915](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1060915),
+[rs1799949](http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1799949)
+
+<!-- rs206076 and rs206080 are not in #3 and rs3092994 is not in #4 -->
+
+--- .class #id
 
 ## Summary
 
 <br>
 
-Running time of my algorithms allows to perform this analysis on a modest laptop
+I am happy I had a chance to play with some decent size datasets
+and prove that I know how important efficiency is. I also learned
+how to analyze these data.
 
-Further optimization is also possible
+Nonetheless, some points in the evaluation are still a mystery for me:
+"The data is generated with certain enrichment technology and certain sequencers."
+If only I knew what are the implications of using different sequencers and why would
+that be important.
+
+I did my best to jump on NGS data analysis, but I learned that little things
+that I am not aware of can make a big difference. Although, I see learning such
+things is only a question of time for me.
 
 <!--
 Analysed reads: 
@@ -307,6 +350,4 @@ All the reads group in `r length( unique( cl$read1 ) )` clusters
 -->
 
 <br>
-Obviously, twisting the data in various ways cannot replace a tiny bit of knowledge
-of what are the stories that the data can possibly tell us. I did my best to jump on
-NGS data analysis, but I only learned that I need to learn more ...
+
