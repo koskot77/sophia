@@ -8,21 +8,27 @@
   <meta name="generator" content="slidify" />
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta http-equiv="X-UA-Compatible" content="chrome=1">
-  <link rel="stylesheet" href="../DevDataProducts/libraries/frameworks/io2012/css/default.css" media="all" >
-  <link rel="stylesheet" href="../DevDataProducts/libraries/frameworks/io2012/css/phone.css" 
+  <link rel="stylesheet" href="../libraries/frameworks/io2012/css/default.css" media="all" >
+  <link rel="stylesheet" href="../libraries/frameworks/io2012/css/phone.css" 
     media="only screen and (max-device-width: 480px)" >
-  <link rel="stylesheet" href="../DevDataProducts/libraries/frameworks/io2012/css/slidify.css" >
-  <link rel="stylesheet" href="../DevDataProducts/libraries/highlighters/highlight.js/css/tomorrow.css" />
-  <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  
+  <link rel="stylesheet" href="../libraries/frameworks/io2012/css/slidify.css" >
+  <link rel="stylesheet" href="../libraries/highlighters/highlight.js/css/tomorrow.css" />
+  <base target="_blank"> <!-- This amazingness opens all links in a new tab. -->  <link rel=stylesheet href="../libraries/widgets/nvd3/css/nv.d3.css"></link>
+<link rel=stylesheet href="../libraries/widgets/nvd3/css/rNVD3.css"></link>
+
   
-  <script src="../DevDataProducts/libraries/widgets/polycharts/js/polychart2.standalone.js"></script>
   <!-- Grab CDN jQuery, fall back to local if offline -->
   <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.min.js"></script>
-  <script>window.jQuery || document.write('<script src="../DevDataProducts/libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
-  <script data-main="../DevDataProducts/libraries/frameworks/io2012/js/slides" 
-    src="../DevDataProducts/libraries/frameworks/io2012/js/require-1.0.8.min.js">
+  <script>window.jQuery || document.write('<script src="../libraries/widgets/quiz/js/jquery.js"><\/script>')</script> 
+  <script data-main="../libraries/frameworks/io2012/js/slides" 
+    src="../libraries/frameworks/io2012/js/require-1.0.8.min.js">
   </script>
   
+  <script src="../libraries/widgets/nvd3/js/jquery-1.8.2.min.js"></script>
+<script src="../libraries/widgets/nvd3/js/d3.v3.min.js"></script>
+<script src="../libraries/widgets/nvd3/js/nv.d3.min-new.js"></script>
+<script src="../libraries/widgets/nvd3/js/fisheye.js"></script>
+<script src="../libraries/widgets/polycharts/js/polychart2.standalone.js"></script>
 
 
 </head>
@@ -36,6 +42,9 @@
     <h2></h2>
     <p>Khristian Kotov<br/></p>
   </hgroup>
+    <a href="https://github.com/kkotov/talks/zipball/gh-pages" class="example">
+     Download
+    </a>
   <article></article>  
 </slide>
     
@@ -404,29 +413,83 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 </thead><tbody>
 <tr>
 <td>1</td>
-<td><code>TCGCGTGTC</code></td>
+<td><code>.{0,2}TCGCGTGTC</code></td>
 <td>19.3K</td>
 </tr>
 <tr>
 <td>2</td>
-<td><code>TATCGCGAG</code></td>
+<td><code>.{0,2}TATCGCGAG</code></td>
 <td>20.7K</td>
 </tr>
 <tr>
 <td>3</td>
-<td><code>GTGTCTCTA</code></td>
+<td><code>.{0,2}GTGTCTCTA</code></td>
 <td>21.4K</td>
 </tr>
 <tr>
 <td>4</td>
-<td><code>TCAGACACG</code></td>
+<td><code>.{0,2}TCAGACACG</code></td>
 <td>21.9K</td>
+</tr>
+</tbody></table>
+
+<p>(<code>.{0,2}</code> prefix allows any 0, 1, or 2 symbols in the beginning of a barcode) &lt;!--, usually #1 and #3 start with <code>C</code> and #2 and #4 with &#39;A&#39;)--&gt;</p>
+
+<p>Only about 0.5K reads are left out of these 4 major clusters</p>
+
+<!-- [A simple cross-check in Galaxy](https://usegalaxy.org/u/koskot77/w/sophia1-1) with the Barcode Splitter tool confirms all these findings -->
+
+  </article>
+  <!-- Presenter Notes -->
+</slide>
+
+<slide class="class" id="id" style="background:;">
+  <hgroup>
+    <h2>What these data tells us?</h2>
+  </hgroup>
+  <article data-timings="">
+    <p>Aligning the reads to human genome reveals a targeted sequencing of these genes:</p>
+
+<table><thead>
+<tr>
+<th>chromosome</th>
+<th>gene</th>
+<th>id</th>
+<th>description</th>
+</tr>
+</thead><tbody>
+<tr>
+<td>chr17</td>
+<td>BRCA1</td>
+<td>NM_027676</td>
+<td>Breast cancer 1, early onset</td>
+</tr>
+<tr>
+<td>chr13</td>
+<td>BRCA2</td>
+<td>NM_000059</td>
+<td>Breast cancer 2, early onset</td>
 </tr>
 </tbody></table>
 
 <p><br></p>
 
-<p>Only about 0.5K reads are left out of these 4 major clusters</p>
+<p><a href="https://usegalaxy.org/u/koskot77/w/sophia3">A simple workflow</a> identifies <a href="hg19vars.vcf">25</a>(<a href="hg38vars.vcf">48</a>) high quality variants wrt. hg19(hg38) reference genome.</p>
+
+<p>Some of these can be found in dbSNP annotation database:
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3752451">rs3752451</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1801406">rs1801406</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206075">rs206075</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206076">rs206076</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206080">rs206080</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=169547">rs169547</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=9534262">rs9534262</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3092994">rs3092994</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1799966">rs1799966</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1060915">rs1060915</a>,
+<a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1799949">rs1799949</a></p>
+
+<!-- rs206076 and rs206080 are not in #3 and rs3092994 is not in #4 -->
 
   </article>
   <!-- Presenter Notes -->
@@ -437,21 +500,20 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
     <h2>Summary</h2>
   </hgroup>
   <article data-timings="">
-    <p>Obviously, twisting the data in various ways cannot replace a tiny bit of knowledge
-of what are the stories that the data can possibly tell us. I can code an efficient
-search algorithm that runs reasonably fast on a modest laptop, but I did not know
-anything about data multiplexing until I have got an evaluation of my work.</p>
+    <p><br></p>
 
-<p>Few other points in the evaluation are still a mystery for me:
+<p>I am happy I had a chance to play with some decent size datasets
+and prove that I know how important efficiency is. I also learned
+how to analyze these data.</p>
+
+<p>Nonetheless, some points in the evaluation are still a mystery for me:
 &quot;The data is generated with certain enrichment technology and certain sequencers.&quot;
 If only I knew what are the implications of using different sequencers and why would
 that be important.</p>
 
-<p>I did my best to jump on NGS data analysis, but I only learned that little things
-that I am not aware of can make a big difference.</p>
-
-<p>Nonetheless, I am happy I had a chance to play with some decent size datasets
-and prove that I know how important efficiency is.</p>
+<p>I did my best to jump on NGS data analysis, but I learned that little things
+that I am not aware of can make a big difference. Although, I see learning such
+things is only a question of time for me.</p>
 
 <!--
 Analysed reads: 
@@ -536,8 +598,14 @@ All the reads group in 1992 clusters
     </li>
     <li>
       <a href="#" target="_self" rel='tooltip' 
-        data-slide=10 title='Summary'>
+        data-slide=10 title='What these data tells us?'>
          10
+      </a>
+    </li>
+    <li>
+      <a href="#" target="_self" rel='tooltip' 
+        data-slide=11 title='Summary'>
+         11
       </a>
     </li>
   </ul>
