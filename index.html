@@ -91,7 +91,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <p>The second line contains a sequence made of letters \(A\), \(C\), \(G\), \(T\), and sometimes \(N\)</p>
 
-<p>The forth line encodes <a href="http://en.wikipedia.org/wiki/Phred_quality_score">Phred</a> quality of a measurement at each position as follows:</p>
+<p>The forth line encodes <a href="http://en.wikipedia.org/wiki/Phred_quality_score">Phred+33</a> quality of a measurement at each position as follows:</p>
 
 <ul>
 <li>convert a symbol to an ASCII code (e.g. &#39;I&#39; \(\rightarrow\) 73)</li>
@@ -191,7 +191,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <li><span style="color:blue;">findMatches</span> preprocessing step runs for all \(\mathcal{O}(N^2)\) pair combinations:
 
 <ul>
-<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns </li>
+<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns (aka. kmers)</li>
 <li>checks all other reads and remember those <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96">firing any of the search patterns</a></li>
 </ul></li>
 <li><span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
@@ -218,10 +218,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart766a4a524109' class = 'rChart polycharts'></div>
+<div id = 'chart2835590d85a' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart766a4a524109",
+ "dom": "chart2835590d85a",
 "width":    850,
 "height":    350,
 "layers": [
@@ -251,12 +251,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "log2(# of unique patterns)",
-"id": "chart766a4a524109" 
+"id": "chart2835590d85a" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart766a4a524109 = polyjs.chart(chartParams);
+    var graph_chart2835590d85a = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -332,10 +332,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart766a625328c9' class = 'rChart polycharts'></div>
+<div id = 'chart28352f3c08a9' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart766a625328c9",
+ "dom": "chart28352f3c08a9",
 "width":    850,
 "height":    300,
 "layers": [
@@ -365,12 +365,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "Cluster profile (summed up for all clusters)",
-"id": "chart766a625328c9" 
+"id": "chart28352f3c08a9" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart766a625328c9 = polyjs.chart(chartParams);
+    var graph_chart28352f3c08a9 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -424,9 +424,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 </tr>
 </tbody></table>
 
-<p>(<code>.{0,2}</code> prefix allows any 0, 1, or 2 symbols in the beginning of a barcode)</p>
-
-<!--, usually #1 and #3 start with `C` and #2 and #4 with 'A')-->
+<p>(<code>.{0,2}</code> pattern allows any 0, 1, or 2 symbols; usually it is &#39;C&#39; for #1,3 and &#39;A&#39; for #2,4)</p>
 
 <p>Only about 0.5K reads are left out of these 4 major clusters</p>
 
@@ -467,7 +465,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <p><br></p>
 
-<p><a href="https://usegalaxy.org/u/koskot77/w/sophia3">A simple workflow</a> identifies <a href="hg19vars.vcf">25</a>(<a href="hg38vars.vcf">48</a>) high quality variants wrt. hg19(hg38) reference genome.</p>
+<p><a href="https://usegalaxy.org/u/koskot77/w/sophia3">A simple workflow</a> finds <a href="hg19vars.vcf">25</a> (<a href="hg38vars.vcf">48</a>) high quality variants wrt. hg19 (hg38) reference genome</p>
 
 <p>Some of these can be found in dbSNP annotation database:
 <a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3752451">rs3752451</a>,
@@ -483,6 +481,8 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1799949">rs1799949</a></p>
 
 <!-- rs206076 and rs206080 are not in #3 and rs3092994 is not in #4 -->
+
+<p>The four barcodes identify four different individuals (check homo/heterozygosity of the variants)</p>
 
   </article>
   <!-- Presenter Notes -->
