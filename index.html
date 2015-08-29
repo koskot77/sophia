@@ -36,6 +36,9 @@
     <h2></h2>
     <p>Khristian Kotov<br/></p>
   </hgroup>
+    <a href="https://github.com/kkotov/talks/zipball/gh-pages" class="example">
+     Download
+    </a>
   <article></article>  
 </slide>
     
@@ -188,10 +191,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <p>Search for similar reads is implemented in <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc">overlap.cc</a> file:</p>
 
 <ul>
-<li><span style="color:blue;">findMatches</span> preprocessing step runs for all \(\mathcal{O}(N^2)\) pair combinations:
+<li><span style="color:blue;">findMatches</span> preprocessing (indexing) step runs for all \(\mathcal{O}(N^2)\) pair combinations:
 
 <ul>
-<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns (aka. kmers)</li>
+<li><a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L65:L69">chops a reference read</a> into search patterns (\(k\)-mers)</li>
 <li>checks all other reads and remember those <a href="https://github.com/koskot77/sophia/blob/master/overlaps.cc#L96">firing any of the search patterns</a></li>
 </ul></li>
 <li><span style="color:blue;">lookCloser</span> step calculates distance defined as a penalty score of an alignment:
@@ -218,10 +221,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart2835590d85a' class = 'rChart polycharts'></div>
+<div id = 'chart1e943a5de783' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart2835590d85a",
+ "dom": "chart1e943a5de783",
 "width":    850,
 "height":    350,
 "layers": [
@@ -251,12 +254,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "log2(# of unique patterns)",
-"id": "chart2835590d85a" 
+"id": "chart1e943a5de783" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart2835590d85a = polyjs.chart(chartParams);
+    var graph_chart1e943a5de783 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -332,10 +335,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart28352f3c08a9' class = 'rChart polycharts'></div>
+<div id = 'chart1e947bf6edb9' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart28352f3c08a9",
+ "dom": "chart1e947bf6edb9",
 "width":    850,
 "height":    300,
 "layers": [
@@ -365,12 +368,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "Cluster profile (summed up for all clusters)",
-"id": "chart28352f3c08a9" 
+"id": "chart1e947bf6edb9" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart28352f3c08a9 = polyjs.chart(chartParams);
+    var graph_chart1e947bf6edb9 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -436,7 +439,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <slide class="class" id="id" style="background:;">
   <hgroup>
-    <h2>What these data tells us?</h2>
+    <h2>What these data tell us?</h2>
   </hgroup>
   <article data-timings="">
     <p>Aligning the reads to human genome reveals a targeted sequencing of these genes:</p>
@@ -467,7 +470,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <p><a href="https://usegalaxy.org/u/koskot77/w/sophia3">A simple workflow</a> finds <a href="hg19vars.vcf">25</a> (<a href="hg38vars.vcf">48</a>) high quality variants wrt. hg19 (hg38) reference genome</p>
 
-<p>Some of these can be found in dbSNP annotation database:
+<p>Some of these can be found in dbSNP database:
 <a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=3752451">rs3752451</a>,
 <a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=1801406">rs1801406</a>,
 <a href="http://www.ncbi.nlm.nih.gov/projects/SNP/snp_ref.cgi?rs=206075">rs206075</a>,
@@ -482,7 +485,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <!-- rs206076 and rs206080 are not in #3 and rs3092994 is not in #4 -->
 
-<p>The four barcodes identify four different individuals (check variants' homo/heterozygosity)</p>
+<p>The four barcodes identify four different individuals (check homo/heterozygosity of the variants)</p>
 
   </article>
   <!-- Presenter Notes -->
@@ -591,7 +594,7 @@ All the reads group in 1992 clusters
     </li>
     <li>
       <a href="#" target="_self" rel='tooltip' 
-        data-slide=10 title='What these data tells us?'>
+        data-slide=10 title='What these data tell us?'>
          10
       </a>
     </li>
@@ -626,7 +629,7 @@ All the reads group in 1992 clusters
   <script>window.MathJax || document.write('<script type="text/x-mathjax-config">MathJax.Hub.Config({"HTML-CSS":{imageFont:null}});<\/script><script src="../libraries/widgets/mathjax/MathJax.js?config=TeX-AMS-MML_HTMLorMML"><\/script>')
 </script>
 <!-- LOAD HIGHLIGHTER JS FILES -->
-  <script src="../libraries/highlighters/highlight.js/highlight.pack.js"></script>
+  <script src="../DevDataProducts/libraries/highlighters/highlight.js/highlight.pack.js"></script>
   <script>hljs.initHighlightingOnLoad();</script>
   <!-- DONE LOADING HIGHLIGHTER JS FILES -->
    
