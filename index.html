@@ -32,7 +32,7 @@
     <!-- LOGO SLIDE -->
         <slide class="title-slide segue nobackground">
   <hgroup class="auto-fadein">
-    <h1>&quot;Some&quot; NGS analysis</h1>
+    <h1>&quot;Some&quot; NSG analysis</h1>
     <h2></h2>
     <p>Khristian Kotov<br/></p>
   </hgroup>
@@ -161,7 +161,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 <li><span style="color:blue;">alignmentScoreMatrix</span> computes the score for the two aligning sequences</li>
 <li><span style="color:blue;">reconstruction</span> inserts gaps based on the score and achieves the best match</li>
 </ul></li>
-<li><p>Clustering algorithm implemented in <a href="https://github.com/koskot77/sophia/blob/master/cluster.cc">cluster.cc</a> file for a stand-alone executable</p>
+<li><p>Hierarchical clustering algorithm implemented in <a href="https://github.com/koskot77/sophia/blob/master/cluster.cc">cluster.cc</a> file for a stand-alone executable</p>
 
 <ul>
 <li>reads text file formatted as &quot;read #, read #, distance\n&quot;</li>
@@ -218,10 +218,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart1e943a5de783' class = 'rChart polycharts'></div>
+<div id = 'chart10867b0e9e5' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart1e943a5de783",
+ "dom": "chart10867b0e9e5",
 "width":    850,
 "height":    350,
 "layers": [
@@ -251,12 +251,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "log2(# of unique patterns)",
-"id": "chart1e943a5de783" 
+"id": "chart10867b0e9e5" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart1e943a5de783 = polyjs.chart(chartParams);
+    var graph_chart10867b0e9e5 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -332,10 +332,10 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <div align="center">
 
-<div id = 'chart1e947bf6edb9' class = 'rChart polycharts'></div>
+<div id = 'chart10866b5fe4e5' class = 'rChart polycharts'></div>
 <script type='text/javascript'>
     var chartParams = {
- "dom": "chart1e947bf6edb9",
+ "dom": "chart10866b5fe4e5",
 "width":    850,
 "height":    300,
 "layers": [
@@ -365,12 +365,12 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 },
 "coord": [],
 "title": "Cluster profile (summed up for all clusters)",
-"id": "chart1e947bf6edb9" 
+"id": "chart10866b5fe4e5" 
 }
     _.each(chartParams.layers, function(el){
         el.data = polyjs.data(el.data)
     })
-    var graph_chart1e947bf6edb9 = polyjs.chart(chartParams);
+    var graph_chart10866b5fe4e5 = polyjs.chart(chartParams);
 </script>
 </div>
 
@@ -391,7 +391,7 @@ IIIIIIIIIHEEEHIG;<8;DIIIIG>43;//1111?9IIIIII?;66111?13?88??I???DDFFIH?<<>DIIIFDB
 
 <p>Wet labs sequence multiple samples in one run <a href="http://res.illumina.com/documents/products/illumina_sequencing_introduction.pdf">tagging each sample with a &quot;barcode&quot;</a></p>
 
-<p>De-multiplexing such data can be achieved by clustering the reads with similar beginnings</p>
+<p>De-multiplexing such data can be achieved by clustering the reads with similar <em>beginnings</em></p>
 
 <p>Grouping sequences with 10 consecutive matches within first 15 symbols (<a href="https://github.com/koskot77/sophia/blob/master/barcodes2.cc">barcodes2.cc</a>) yields:</p>
 
