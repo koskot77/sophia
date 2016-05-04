@@ -33,7 +33,7 @@ size_t alignmentScoreMatrix(const char *seq1, const char *seq2, size_t **score){
 #undef MIN
 
 // reconstruct the alignments, the x and y should be both allocated for [len(seq1)+len(seq2)] size
-void reconstruction(const char *seq1, const char *seq2, const size_t **score, char *x, char *y){
+size_t reconstruction(const char *seq1, const char *seq2, const size_t **score, char *x, char *y){
     // initialization
     size_t len1 = strlen(seq1);
     size_t len2 = strlen(seq2);
@@ -77,6 +77,8 @@ void reconstruction(const char *seq1, const char *seq2, const size_t **score, ch
 
     x[k] = '\0';
     y[k] = '\0';
+
+    return k;
 }
 
 // A collisionless hash-like helper function to convert a sequence of bases (limited to 32 symbols) into an integer number 
@@ -224,25 +226,30 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 
 #include<map>
 #include<set>
+#include<string>
+#include<vector>
+using namespace std;
 
 // Finally, implementation of the problem as required by the competition
 class DNASequencing {
 private:
     string reference[25]; // not sure if 24 chromatids Ids start at 0 or 1, let's assume 1
     map< unsigned long long, set<unsigned int> > lookUp[25]; // k-mer -> location (chromotid,positions)
-    size_t width, step;   // k-mer size and k-mer step
+    size_t step;   // k-mer step
 
-    const static size_t len = 150;
+    const static size_t len   = 150;
+    const static size_t width = 30;
 
-    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &frist, size_t &last);
-    size_t alignAccurate(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &frist, size_t &last);
+public:
+    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last);
+    size_t alignAccurate(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last);
 
 public:
     int initTest(int testDifficulty){
         switch( testDifficulty ){
-            case 0: step = 1; break;
-            case 1: step = width; break; // step = width/3;
-            case 2: step = width; break;
+            case 0: step = 2;     break; // 1
+            case 1: step = 10;    break; // 5
+            case 2: step = width; break; // ?
             default: break;
         }
         return 0;
@@ -250,17 +257,22 @@ public:
 
     int passReferenceGenome(int chromatidSequenceId, const vector<string> &chromatidSequence);
 
+    void printRef(size_t chId, size_t first, size_t last){
+        cout<<reference[chId].substr(first,last-first)<<endl;
+    }
+
     int preProcessing(void);
 
     vector<string> getAlignment(size_t N, double normA, double normS, const vector<string> &readName, const vector<string> &readSequence);
 
-    DNASequencing(void){ width = 30; }
+    DNASequencing(void){}
     ~DNASequencing(void){}
 };
 
 
 int DNASequencing::passReferenceGenome(int chromatidSequenceId, const vector<string> &chromatidSequence){
     // Initialization of the 24 reference chromatides
+    reference[ chromatidSequenceId ].clear();
     if( chromatidSequenceId < 0 || chromatidSequenceId > 24 ) return -1;
     for( auto &line : chromatidSequence )
         reference[ chromatidSequenceId ].append( line.substr(0,line.length()-1) ); // Fucking Windows eol extra symbol!
@@ -279,10 +291,6 @@ int DNASequencing::preProcessing(void){
 //            view = (view >> (step*2)) | ( sequence2number(seq+pos,step,err) << ((width-step)*2) );
             unsigned long long view = numSeq.view(pos,width);
             lookUp[chId][view].insert( pos );
-//if( view == 0xb6a4f583ec00f02LL ) cout<<"pos1="<<pos<<endl;
-//if( view == 0xb66ec0fcee90a6eLL ) cout<<"pos2="<<pos<<endl;
-//if( pos == 28494871 ) cout<<"view1="<<hex<<view<<hex<<endl;
-//if( pos == 28496839 ) cout<<"view2="<<hex<<view<<hex<<endl;
         }
         cout<<"chId="<<chId<<" done"<<endl;
     }
@@ -301,14 +309,126 @@ const char complement[128] = {
         'n','n','n','n','n','n','n','n'
 };
 
-size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last){
-// A fast sloppy version that doesn't aim at very accurate begin-end (first-last) alignment position calculation
-    static size_t score[len+1][len+1];
-    string ref = reference[chId].substr( refPos-readPos, len );
-    size_t s = alignmentScoreMatrix(read.c_str(), ref.c_str(), (size_t**)score);
+//void DNASequencing::print(size_t chId, size_t first, size_t last, char strain){
+//    if( strain == '+' )
+//        cout<<reference[chId].substr(first,last-first)<<endl;
+//    else {
+//        string str = reference[chId].substr(first,last-first);
+//        string reverseCompliment;
+//        for(int pos = str.length()-1; pos >= 0; pos--)
+//            reverseCompliment += complement[ str[ pos ] ];
+//        cout<<reverseCompliment<<endl;
+//    }
+//}
 
-    first = refPos-readPos;
-    last  = len;
+size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last){
+    const char *ref = reference[chId].c_str();
+
+    // first move by block of width backward from the matching pattern
+    size_t s = 0;
+    int    shift = 0;
+
+    // assuming there will be no indels, beginning of the ref segment should be shifted by readPos
+    if( refPos >= readPos )
+        first = refPos - readPos;
+    else {
+        s = gapCost*(readPos-refPos);
+        first = 0;
+    }
+
+    for(size_t relPos = width; relPos < readPos + width && relPos < refPos + shift + width; relPos += width){
+
+        const char *newRead = read.c_str() + readPos - relPos;
+        const char *newRef  = ref          + refPos + shift - relPos;
+
+        // padding at the beginning if needed
+        string rd;
+        if( relPos <= readPos )
+            rd = string(newRead, width);
+        else
+            rd = string(relPos - readPos,'*').append( string(read.c_str(), width - relPos + readPos) );
+
+        string rf;
+        if( relPos <= refPos ) {
+            if( relPos <= readPos )
+                rf = string(newRef, width);
+            else
+                rf = string(relPos - readPos,'*').append( string(newRef + relPos - readPos, width - relPos + readPos) );
+        } else
+            rf = string(relPos - refPos,'*').append( string(newRef, width - relPos + refPos) );
+
+        if( strncmp( rd.c_str(), rf.c_str(), width ) ){
+
+            static size_t score[width+1][width+1];
+            s += alignmentScoreMatrix( rf.c_str(), rd.c_str(), (size_t**)score );
+
+            static char a[2*width], b[2*width];
+            size_t newlen = reconstruction(rf.c_str(), rd.c_str(), (const size_t **)score, a, b);
+
+            for(size_t i=0,j=0; i<newlen; i++){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j) shift++; else s-=gapCost; } }
+            for(size_t i=0,j=0; i<newlen; i++){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j) shift--; else s-=gapCost; } }
+        }
+    }
+
+    if( int(first)+shift >= 0 )
+        first += shift;
+    else {
+        s += gapCost*(-shift-first);
+        first = 0;
+    }
+
+    // assuming there will be no indels, end of the ref segment should be shifted by read.length() - readPos
+    size_t readLen = read.length();
+    size_t refLen  = reference[chId].length(); //strlen(ref);
+    if( refLen >= refPos + readLen - readPos )
+        last    = refPos + readLen - readPos;
+    else {
+        s = gapCost*(refPos + readLen - readPos - refLen);
+        last = refLen;
+    }
+
+
+    shift = 0;
+    for(size_t relPos = width; relPos + readPos < readLen && relPos + refPos - shift < refLen; relPos += width){
+
+        const char *newRead = read.c_str() + readPos + relPos;
+        const char *newRef  = ref          + refPos - shift + relPos;
+
+        // padding at the end if needed
+        string rd;
+        if( readPos + relPos + width < readLen )
+            rd = string(newRead, width);
+        else
+            rd = string(newRead, readLen - readPos - relPos).append( string(readPos + relPos + width - readLen,'*') );
+
+        string rf;
+        if( refPos + relPos - shift + width < refLen ){
+            if( readPos + relPos + width < readLen )
+                rf = string(newRef, width);
+            else
+                rf = string(newRef, readLen - readPos - relPos).append( string(readPos + relPos + width - readLen,'*') );
+        } else
+            rf = string(newRef, refLen - refPos - relPos + shift).append( string(refPos + relPos - shift + width - refLen,'*') );
+
+        if( strncmp( rd.c_str(), rf.c_str(), width ) ){
+
+            static size_t score[width+1][width+1];
+            s += alignmentScoreMatrix( rf.c_str(), rd.c_str(), (size_t**)score );
+
+            static char a[2*width], b[2*width];
+            size_t newlen = reconstruction(rf.c_str(), rd.c_str(), (const size_t **)score, a, b);
+
+            for(int i=newlen-1,j=0; i>=0; i--){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j) shift++; else s-=gapCost; } }
+            for(int i=newlen-1,j=0; i>=0; i--){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j) shift--; else s-=gapCost; } }
+        }
+    }
+
+    if( int(last)-shift >= 0 )
+        last -= shift;
+    else {
+        s += gapCost*(shift-last);
+        last = refLen;
+    }
 
     return s;
 }
@@ -357,11 +477,17 @@ size_t DNASequencing::alignAccurate(size_t chId, size_t refPos, size_t readPos, 
 vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS, const vector<string> &readName, const vector<string> &readSequence){
     vector<string> retval;
 
+    cout<<"calling getAlignment"<<endl;
+
+    bool debug = false, fast = true;
+
     for(size_t read=0; read<N/2; read++){
         // all reads are paired, always consider them together 
 
         size_t read1 = 2*read;
         size_t read2 = 2*read + 1;
+
+if(debug) cout<<"Read1: "<<read1<<" read2: "<<read2<<endl;
 
         string reverseCompliment1;
         for(int pos = readSequence[ read1 ].length()-1; pos >= 0; pos--)
@@ -388,7 +514,7 @@ vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS,
         //  the map below is association if alignment positions: end -> (begin,score)
         map< unsigned int, pair<unsigned int,size_t> > alreadySeenF1[25], alreadySeenF2[25], alreadySeenR1[25], alreadySeenR2[25];
 
-        size_t bestScore = 1000000;
+        size_t bestScore1 = 1000000, bestScore2 = 1000000;
         int    bestCh    = -1;
         bool   revCompl  = false;
         unsigned long long bestBegin1 = 0;
@@ -399,16 +525,20 @@ vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS,
 ///clock_t start = clock();
 
         // let's slide along the both reads simultaneously
-        for(unsigned long long pos=0; pos<len-width; pos++){
+        for(unsigned long long pos=0; pos<len-width/2; pos+=width/2){
 
-            if( bestScore == 0 ) break; // shortcut for the competition
+            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
+
+for(unsigned short shift=0; shift<step && pos+shift+width<len; shift++){
+
+if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
 
             // get hash codes for the k-mer
             unsigned long long viewF1 = numF1.view(pos,width);
-            unsigned long long viewF2 = numF2.view(pos,width);
+            unsigned long long viewF2 = numF2.view(pos+shift,width);
 
             unsigned long long viewR1 = numR1.view(pos,width);
-            unsigned long long viewR2 = numR2.view(pos,width);
+            unsigned long long viewR2 = numR2.view(pos+shift,width);
 
             // try matching every chromatid
             for(size_t chId=0; chId<25; chId++){
@@ -423,33 +553,34 @@ vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS,
                 map< unsigned long long, set<unsigned int> >::const_iterator hitR1 = lookUp[chId].find(viewR1);
                 map< unsigned long long, set<unsigned int> >::const_iterator hitR2 = lookUp[chId].find(viewR2);
 
-//cout<<"pos = "<<pos<<" viewF1 = "<<hex<<viewF1<<" viewF2 = "<<viewF2<<" viewR1 = "<<viewR1<<" viewR2 = "<<viewR2<<dec<<endl;
+if(debug) cout<<"pos = "<<pos<<" viewF1 = "<<hex<<viewF1<<" viewF2 = "<<viewF2<<" viewR1 = "<<viewR1<<" viewR2 = "<<viewR2<<dec<<endl;
 
                 // while belonging to the same DNA fragment, the paired reads cannot be far away
                 // check it for the first hypothesis
                 if( hitF1 != lookUp[chId].end() && hitF2 != lookUp[chId].end() ){ // both of paired reads fire some k-mers in the same chromatid?
 
                     // found set(!) of hits belong to the same chromatid, now check if their positions are far apart
-                    const set<unsigned int> &biggerList       = ( hitF1->second.size() >  hitF2->second.size() ? hitF1->second : hitF2->second );
-                    const set<unsigned int> &smallerList      = ( hitF1->second.size() <= hitF2->second.size() ? hitF1->second : hitF2->second );
-                    const string &seqBig                      = ( hitF1->second.size() >  hitF2->second.size() ? readSequence[read1]: reverseCompliment2);
-                    const string &seqSmall                    = ( hitF1->second.size() <= hitF2->second.size() ? readSequence[read1]: reverseCompliment2);
-                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( hitF1->second.size() > hitF2->second.size() ? alreadySeenF1[chId] : alreadySeenF2[chId] );
-                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = ( hitF1->second.size() < hitF2->second.size() ? alreadySeenF1[chId] : alreadySeenF2[chId] );
+                    bool firstIsSmall = hitF1->second.size() <= hitF2->second.size() ;
+                    const set<unsigned int> &biggerList       = ( !firstIsSmall ? hitF1->second : hitF2->second );
+                    const set<unsigned int> &smallerList      = (  firstIsSmall ? hitF1->second : hitF2->second );
+                    const string &seqBig                      = ( !firstIsSmall ? readSequence[read1]: reverseCompliment2);
+                    const string &seqSmall                    = (  firstIsSmall ? readSequence[read1]: reverseCompliment2);
+                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
+                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
 
-                    if( smallerList.size() > 20 ) continue; // suspiciously many hits, probably not very informative k-mer -> skip the whole case
+//                    if( smallerList.size() > 20 && bestScore1 + bestScore2 > 10000 ){ bestCh=chId; continue; } // suspiciously many hits, probably not very informative k-mer -> skip the whole case
 
-//cout<<" same chomo1, nMatches: "<<smallerList.size()<<" sizeF1: "<<hitF1->second.size()<<" sizeF2: "<<hitF2->second.size()<<endl;
+if(debug) cout<<" same chromo1: "<<chId<<", nMatches: "<<smallerList.size()<<" sizeF1: "<<hitF1->second.size()<<" sizeF2: "<<hitF2->second.size()<<" shift="<<shift<<endl;
 
                     for( auto &refPos : smallerList ){
 
-//cout << "refPos1:" << refPos << " wrt: "<< *(biggerList.begin()) << endl;
+if(debug) cout << "refPos1:" << refPos << endl;
 
                         // consider all paired alignments close by within 700 base pairs
                         set<unsigned int>::const_iterator complement = biggerList.upper_bound(int(refPos)-int(700));
                         while( complement != biggerList.end() && int(*complement)-int(refPos) < 700 ){
 
-//cout << "complement1:" << *complement << endl;
+if(debug) cout << "complement1:" << *complement << endl;
 
                             size_t score1, score2;
                             size_t first1, last1;
@@ -457,61 +588,89 @@ vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS,
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
-                                score1 = alignAccurate(chId, refPos, pos, seqSmall, first1, last1);
+                                if( fast )
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+                                else
+                                    score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
                                 seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-//cout<<"alignment1 score1:"<<score1<<endl;
-                            } else
+if(debug) cout<<"alignment1 score1:"<<score1<<endl;
+                            } else {
                                 score1 = candidate->second.second;
+                                first1 = candidate->second.first;
+                                last1  = candidate->first;
+                            }
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
-                                score2 = alignAccurate(chId, *complement, pos, seqBig, first2, last2);
+                                if( fast )
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+                                else
+                                    score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
                                 seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-//cout<<"alignment1 score2:"<<score2<<endl;
-                            } else
+if(debug) cout<<"alignment1 score2:"<<score2<<endl;
+                            } else {
                                 score2 = candidate2->second.second;
+                                first2 = candidate2->second.first;
+                                last2  = candidate2->first;
+                            }
 
-                            if( bestScore > score1 + score2 ){
-                                bestScore = score1 + score2;
-                                bestCh    = chId;
-                                bestBegin1 = first1;
-                                bestEnd1   = last1;
-                                bestBegin2 = first2;
-                                bestEnd2   = last2;
-                                revCompl  = false;
+                            if( bestScore1 + bestScore2 > score1 + score2 ){
+                                bestCh   = chId;
+                                revCompl = false;
+                                if( firstIsSmall ){
+                                    bestScore1 = score1;
+                                    bestScore2 = score2;
+                                    bestBegin1 = first1;
+                                    bestEnd1   = last1;
+                                    bestBegin2 = first2;
+                                    bestEnd2   = last2;
+                                } else {
+                                    bestScore1 = score2;
+                                    bestScore2 = score1;
+                                    bestBegin1 = first2;
+                                    bestEnd1   = last2;
+                                    bestBegin2 = first1;
+                                    bestEnd2   = last1;
+                                }
                             }
 
                             complement++;
-                        }
 
-//                        if( s == 0 ) break;
-                    }
-                }
+                            if( bestScore1 + bestScore2 == 0 ) break;
+
+                        } // loop over compliment
+
+                        if( bestScore1 + bestScore2 == 0 ) break;
+                    } // loop over refPos in smallerList
+
+                } // if hitF1 and hitF2 exist
+
 
                 // check it for the second hypothesis
                 if( hitR1 != lookUp[chId].end() && hitR2 != lookUp[chId].end() ){ // both of paired reads fire some k-mers in the same chromatid?
 
                     // found set(!) of hits belong to the same chromatid, now check if their positions are far apart
-                    const set<unsigned int> &biggerList       = ( hitR1->second.size() >  hitR2->second.size() ? hitR1->second : hitR2->second );
-                    const set<unsigned int> &smallerList      = ( hitR1->second.size() <= hitR2->second.size() ? hitR1->second : hitR2->second );
-                    const string &seqBig                      = ( hitR1->second.size() >  hitR2->second.size() ? reverseCompliment1: readSequence[read2]);
-                    const string &seqSmall                    = ( hitR1->second.size() <= hitR2->second.size() ? reverseCompliment1: readSequence[read2]);
-                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( hitR1->second.size() > hitR2->second.size() ? alreadySeenR1[chId] : alreadySeenR2[chId] );
-                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = ( hitR1->second.size() < hitR2->second.size() ? alreadySeenR1[chId] : alreadySeenR2[chId] );
+                    bool firstIsSmall = hitR1->second.size() <= hitR2->second.size() ;
+                    const set<unsigned int> &biggerList       = ( !firstIsSmall ? hitR1->second : hitR2->second );
+                    const set<unsigned int> &smallerList      = (  firstIsSmall ? hitR1->second : hitR2->second );
+                    const string &seqBig                      = ( !firstIsSmall ? reverseCompliment1: readSequence[read2]);
+                    const string &seqSmall                    = (  firstIsSmall ? reverseCompliment1: readSequence[read2]);
+                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
+                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
 
-//cout<<" same chomo2, nMatches: "<<smallerList.size()<<" sizeR1: "<<hitR1->second.size()<<" sizeR2: "<<hitR2->second.size()<<endl;
+if(debug) cout<<" same chromo2: "<< chId << ", nMatches: "<<smallerList.size()<<" sizeR1: "<<hitR1->second.size()<<" sizeR2: "<<hitR2->second.size()<<" shift="<<shift<<endl;
 
-                    if( smallerList.size() > 20 ) continue; // suspiciously many hits, probably not very informative k-mer -> skip the whole case
+//                    if( smallerList.size() > 20 && bestScore1 + bestScore2 > 10000 ){ bestCh=chId; continue; } // suspiciously many hits, probably not very informative k-mer -> skip the whole case
 
                     for( auto &refPos : smallerList ){
 
-//cout << "refPos2:" << refPos << " wrt: "<< *(biggerList.begin()) << endl;
+if(debug) cout << "refPos2:" << refPos << endl;
 
                         // consider all paired alignments close by within 700 base pairs
                         set<unsigned int>::const_iterator complement = biggerList.upper_bound(int(refPos)-int(700));
                         while( complement != biggerList.end() && int(*complement)-int(refPos) < 700 ){
 
-//cout << "complement2:" << *complement << endl;
+if(debug) cout << "complement2:" << *complement << endl;
 
                             size_t score1, score2;
                             size_t first1, last1;
@@ -519,66 +678,100 @@ vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS,
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
-                                score1 = alignAccurate(chId, refPos, pos, seqSmall, first1, last1);
+                                if( fast )
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+                                else
+                                    score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
                                 seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-//cout<<"alignment2 score1:"<<score1<<endl;
-                            } else
+if(debug) cout<<"alignment2 score1:"<<score1<<endl;
+                            } else {
                                 score1 = candidate->second.second;
+                                first1 = candidate->second.first;
+                                last1  = candidate->first;
+                            }
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
-                                score2 = alignAccurate(chId, *complement, pos, seqBig, first2, last2);
+                                if( fast )
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+                                else
+                                    score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
                                 seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-//cout<<"alignment2 score2:"<<score2<<endl;
-                            } else
+if(debug) cout<<"alignment2 score2:"<<score2<<endl;
+                            } else {
                                 score2 = candidate2->second.second;
+                                first2 = candidate2->second.first;
+                                last2  = candidate2->first;
+                            }
 
-                            if( bestScore > score1 + score2 ){
-                                bestScore = score1 + score2;
-                                bestCh    = chId;
-                                bestBegin1 = first1;
-                                bestEnd1   = last1;
-                                bestBegin2 = first2;
-                                bestEnd2   = last2;
-                                revCompl  = true;
+                            if( bestScore1 + bestScore2 > score1 + score2 ){
+                                bestCh   = chId;
+                                revCompl = true;
+                                if( firstIsSmall ){
+                                    bestScore1 = score1;
+                                    bestScore2 = score2;
+                                    bestBegin1 = first1;
+                                    bestEnd1   = last1;
+                                    bestBegin2 = first2;
+                                    bestEnd2   = last2;
+                                } else {
+                                    bestScore1 = score2;
+                                    bestScore2 = score1;
+                                    bestBegin1 = first2;
+                                    bestEnd1   = last2;
+                                    bestBegin2 = first1;
+                                    bestEnd2   = last1;
+                                }
+
                             }
 
                             complement++;
-                        }
 
-//                        if( s == 0 ) break;
-                    }
-                }
+                            if( bestScore1 + bestScore2 == 0 ) break;
+
+                        } // loop over compliment
+
+                        if( bestScore1 + bestScore2 == 0 ) break;
+                    } // loop over refPos in smallerList
+
+                } // if hitR1 and hitR2 exist
 
 
-            }
-        }
+            } // loop over chId
+} // loop over shift
+        } // loop over pos
 
         static char buffer[1024];
-        if( bestCh >= 0 ){
+        if( bestScore1 + bestScore2 < 2000000 ){
 if( !revCompl ){ 
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh+1,bestBegin1+1,bestEnd1+1,'+',bestScore);
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh,bestBegin1+1,bestEnd1+1,'+',bestScore1);
             retval.push_back( buffer );
-///cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<readSequence[read1]<<endl;
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh+1,bestBegin2+1,bestEnd2+1,'-', bestScore);
+//if(debug) 
+cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<readSequence[read1]<<endl;
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh,bestBegin2+1,bestEnd2+1,'-', bestScore2);
             retval.push_back( buffer );
-///cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<reverseCompliment2<<endl;
+//if(debug) 
+cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<reverseCompliment2<<endl;
 } else {
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh+1,bestBegin1+1,bestEnd1+1,'-',bestScore);
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh,bestBegin1+1,bestEnd1+1,'-',bestScore1);
             retval.push_back( buffer );
-///cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<reverseCompliment1<<endl;
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh+1,bestBegin2+1,bestEnd2+1,'+', bestScore);
+//if(debug) 
+cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<reverseCompliment1<<endl;
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh,bestBegin2+1,bestEnd2+1,'+', bestScore2);
             retval.push_back( buffer );
-///cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<readSequence[read2]<<endl;
+//if(debug) 
+cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<readSequence[read2]<<endl;
 
 }
         } else {
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh+1,bestBegin1+1,bestEnd1+1,(revCompl?'-':'+'), bestScore);
+            sprintf(buffer,"%s,%d,%d,%d,%c,%ld",readName[read1].c_str(),bestCh,1,2,'+', bestScore1+bestScore2);
             retval.push_back( buffer );
-///cout<<buffer<<" seq=NULL"<<endl;
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh+1,bestBegin2+1,bestEnd2+1,(revCompl?'-':'+'), bestScore);
+//if(debug) 
+cout<<buffer<<" seq=NULL"<<endl;
+            sprintf(buffer,"%s,%d,%d,%d,%c,%ld",readName[read2].c_str(),bestCh,1,2,'-', bestScore1+bestScore2);
             retval.push_back( buffer );
-///cout<<buffer<<" seq=NULL"<<endl;
+//if(debug) 
+cout<<buffer<<" seq=NULL"<<endl;
         }
 
 ///clock_t end = clock() - start;
