@@ -228,6 +228,7 @@ const unsigned NumericSequence::symbolsInOneElement = sizeof(unsigned long long)
 #include<set>
 #include<string>
 #include<vector>
+#include<math.h>
 using namespace std;
 
 // Finally, implementation of the problem as required by the competition
@@ -239,9 +240,10 @@ private:
 
     const static size_t len   = 150;
     const static size_t width = 30;
+    int someCh;
 
 public:
-    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last);
+    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, double &prob);
     size_t alignAccurate(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last);
 
 public:
@@ -272,6 +274,7 @@ public:
 
 int DNASequencing::passReferenceGenome(int chromatidSequenceId, const vector<string> &chromatidSequence){
     // Initialization of the 24 reference chromatides
+    someCh = chromatidSequenceId;
     reference[ chromatidSequenceId ].clear();
     if( chromatidSequenceId < 0 || chromatidSequenceId > 24 ) return -1;
     for( auto &line : chromatidSequence )
@@ -309,24 +312,12 @@ const char complement[128] = {
         'n','n','n','n','n','n','n','n'
 };
 
-//void DNASequencing::print(size_t chId, size_t first, size_t last, char strain){
-//    if( strain == '+' )
-//        cout<<reference[chId].substr(first,last-first)<<endl;
-//    else {
-//        string str = reference[chId].substr(first,last-first);
-//        string reverseCompliment;
-//        for(int pos = str.length()-1; pos >= 0; pos--)
-//            reverseCompliment += complement[ str[ pos ] ];
-//        cout<<reverseCompliment<<endl;
-//    }
-//}
-
-size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last){
+size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, double &prob){
     const char *ref = reference[chId].c_str();
 
     // first move by block of width backward from the matching pattern
     size_t s = 0;
-    int    shift = 0;
+    int    shift = 0, indels = 0, mismatches = 0;
 
     // assuming there will be no indels, beginning of the ref segment should be shifted by readPos
     if( refPos >= readPos )
@@ -365,8 +356,8 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
             static char a[2*width], b[2*width];
             size_t newlen = reconstruction(rf.c_str(), rd.c_str(), (const size_t **)score, a, b);
 
-            for(size_t i=0,j=0; i<newlen; i++){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j) shift++; else s-=gapCost; } }
-            for(size_t i=0,j=0; i<newlen; i++){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j) shift--; else s-=gapCost; } }
+            for(size_t i=0,j=0; i<newlen; i++){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j){ shift++; indels++; } else s-=gapCost; } }
+            for(size_t i=0,j=0; i<newlen; i++){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j){ shift--; indels++; } else s-=gapCost; } else { if(b[i]!=a[i] && a[i]!='-') mismatches++; } }
         }
     }
 
@@ -375,6 +366,7 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
     else {
         s += gapCost*(-shift-first);
         first = 0;
+        indels += (-shift-first);
     }
 
     // assuming there will be no indels, end of the ref segment should be shifted by read.length() - readPos
@@ -418,8 +410,8 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
             static char a[2*width], b[2*width];
             size_t newlen = reconstruction(rf.c_str(), rd.c_str(), (const size_t **)score, a, b);
 
-            for(int i=newlen-1,j=0; i>=0; i--){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j) shift++; else s-=gapCost; } }
-            for(int i=newlen-1,j=0; i>=0; i--){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j) shift--; else s-=gapCost; } }
+            for(int i=newlen-1,j=0; i>=0; i--){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j){ shift++; indels++; } else s-=gapCost; } }
+            for(int i=newlen-1,j=0; i>=0; i--){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j){ shift--; indels++; } else s-=gapCost; } else { if(b[i]!=a[i] && a[i]!='-') mismatches++; } }
         }
     }
 
@@ -428,7 +420,48 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
     else {
         s += gapCost*(shift-last);
         last = refLen;
+        indels += (shift-last);
     }
+
+// for N=150:
+    static double NchooseK[len+1] = {1, 
+1.500000e+02,1.117500e+04,5.513000e+05,2.026028e+07,5.916000e+08,
+1.429700e+10,2.941097e+11,5.257211e+12,8.294711e+13,1.169554e+15,
+1.488524e+16,1.724207e+17,1.830312e+18,1.791091e+19,1.623922e+20,
+1.370184e+21,1.080028e+22,7.980204e+22,5.544142e+23,3.631413e+24,
+2.248018e+25,1.318156e+26,7.335823e+26,3.881873e+27,1.956464e+28,
+9.406077e+28,4.319828e+29,1.897639e+30,7.983170e+30,3.219879e+31,
+1.246405e+32,4.635067e+32,1.657388e+33,5.703363e+33,1.890258e+34,
+6.038323e+34,1.860456e+35,5.532409e+35,1.588794e+36,4.408905e+36,
+1.182877e+37,3.069847e+37,7.710313e+37,1.875008e+38,4.416686e+38,
+1.008156e+39,2.230814e+39,4.786956e+39,9.964684e+39,2.012866e+40,
+3.946796e+40,7.514093e+40,1.389398e+41,2.495771e+41,4.356255e+41,
+7.390075e+41,1.218714e+42,1.954145e+42,3.047142e+42,4.621498e+42,
+6.818604e+42,9.787996e+42,1.367212e+43,1.858554e+43,2.459010e+43,
+3.166907e+43,3.970450e+43,4.846285e+43,5.759353e+43,6.664394e+43,
+7.509176e+43,8.239235e+43,8.803566e+43,9.160467e+43,9.282607e+43,
+9.160467e+43,8.803566e+43,8.239235e+43,7.509176e+43,6.664394e+43,
+5.759353e+43,4.846285e+43,3.970450e+43,3.166907e+43,2.459010e+43,
+1.858554e+43,1.367212e+43,9.787996e+42,6.818604e+42,4.621498e+42,
+3.047142e+42,1.954145e+42,1.218714e+42,7.390075e+41,4.356255e+41,
+2.495771e+41,1.389398e+41,7.514093e+40,3.946796e+40,2.012866e+40,
+9.964684e+39,4.786956e+39,2.230814e+39,1.008156e+39,4.416686e+38,
+1.875008e+38,7.710313e+37,3.069847e+37,1.182877e+37,4.408905e+36,
+1.588794e+36,5.532409e+35,1.860456e+35,6.038323e+34,1.890258e+34,
+5.703363e+33,1.657388e+33,4.635067e+32,1.246405e+32,3.219879e+31,
+7.983170e+30,1.897639e+30,4.319828e+29,9.406077e+28,1.956464e+28,
+3.881873e+27,7.335823e+26,1.318156e+26,2.248018e+25,3.631413e+24,
+5.544142e+23,7.980204e+22,1.080028e+22,1.370184e+21,1.623922e+20,
+1.791091e+19,1.830312e+18,1.724207e+17,1.488524e+16,1.169554e+15,
+8.294711e+13,5.257211e+12,2.941097e+11,1.429700e+10,5.916000e+08,
+2.026028e+07,5.513000e+05,1.117500e+04,1.500000e+02,1.000000e+00
+   };
+
+    if( mismatches < 0 || mismatches > len || indels < 0 || indels > len ){ cout<<"KARAUL"<<endl; exit(0); } 
+
+    // assume binominal probabilities for number of mismatches and indels
+    prob  = NchooseK[mismatches]*pow((1.-1./800. )*(1.-1./500. ),len-mismatches)*pow(1. - (1.-1./800. )*(1.-1./500. ),mismatches);
+    prob *= NchooseK[indels]    *pow((1.-1./1000.)*(1.-1./5000.),len-indels)    *pow(1. - (1.-1./1000.)*(1.-1./5000.),indels);
 
     return s;
 }
@@ -474,6 +507,20 @@ size_t DNASequencing::alignAccurate(size_t chId, size_t refPos, size_t readPos, 
     return s;
 }
 
+struct Match_t {
+    size_t bestScore;
+    double prob;
+    int    bestCh;
+    bool   revCompl;
+    size_t read;
+    unsigned long long bestBegin;
+    unsigned long long bestEnd;
+    Match_t(void):bestScore(1000000),prob(0),bestCh(-1),revCompl(false),read(0),bestBegin(0),bestEnd(0){}
+    Match_t(size_t bs, double p, int bc, bool rc, size_t rd, unsigned long long bb, unsigned long long be):
+            bestScore(bs),prob(p),bestCh(bc),revCompl(rc),read(rd),bestBegin(bb),bestEnd(be){}
+};
+
+// 14:30 LX1473
 vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS, const vector<string> &readName, const vector<string> &readSequence){
     vector<string> retval;
 
@@ -515,6 +562,7 @@ if(debug) cout<<"Read1: "<<read1<<" read2: "<<read2<<endl;
         map< unsigned int, pair<unsigned int,size_t> > alreadySeenF1[25], alreadySeenF2[25], alreadySeenR1[25], alreadySeenR2[25];
 
         size_t bestScore1 = 1000000, bestScore2 = 1000000;
+        double bestProb1 = 0, bestProb2 = 0;
         int    bestCh    = -1;
         bool   revCompl  = false;
         unsigned long long bestBegin1 = 0;
@@ -522,16 +570,14 @@ if(debug) cout<<"Read1: "<<read1<<" read2: "<<read2<<endl;
         unsigned long long bestEnd1   = 0;
         unsigned long long bestEnd2   = 0;
 
-///clock_t start = clock();
+///        multimap<double,Match_t> matchesF1, matchesF2, matchesR1, matchesR2;
 
         // let's slide along the both reads simultaneously
-        for(unsigned long long pos=0; pos<len-width/2; pos+=width/2){
+        for(unsigned long long pos=0; pos<len; pos++){ //+=width/2){
 
             if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
 
 for(unsigned short shift=0; shift<step && pos+shift+width<len; shift++){
-
-if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
 
             // get hash codes for the k-mer
             unsigned long long viewF1 = numF1.view(pos,width);
@@ -567,6 +613,8 @@ if(debug) cout<<"pos = "<<pos<<" viewF1 = "<<hex<<viewF1<<" viewF2 = "<<viewF2<<
                     const string &seqSmall                    = (  firstIsSmall ? readSequence[read1]: reverseCompliment2);
                     map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
                     map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
+///                    multimap<double,Match_t> &matchesBig      = ( !firstIsSmall ? matchesF1 : matchesF2 );
+///                    multimap<double,Match_t> &matchesSmall    = (  firstIsSmall ? matchesF1 : matchesF2 );
 
 //                    if( smallerList.size() > 20 && bestScore1 + bestScore2 > 10000 ){ bestCh=chId; continue; } // suspiciously many hits, probably not very informative k-mer -> skip the whole case
 
@@ -585,15 +633,19 @@ if(debug) cout << "complement1:" << *complement << endl;
                             size_t score1, score2;
                             size_t first1, last1;
                             size_t first2, last2;
+                            double prob1,  prob2;
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
                                 if( fast )
-                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, prob1);
                                 else
                                     score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+
+///                                matchesSmall.insert( pair<double,Match_t>(1.-prob1,Match_t(score1,prob1,chId,false,(firstIsSmall?read1:read2),first1,last1)) );
+
                                 seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-if(debug) cout<<"alignment1 score1:"<<score1<<endl;
+if(debug) cout<<"alignment1 score1:"<<score1<<" probability: "<<prob1<<endl;
                             } else {
                                 score1 = candidate->second.second;
                                 first1 = candidate->second.first;
@@ -603,21 +655,26 @@ if(debug) cout<<"alignment1 score1:"<<score1<<endl;
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
                                 if( fast )
-                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, prob2);
                                 else
                                     score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+
+///                                matchesBig.insert( pair<double,Match_t>(1.-prob2,Match_t(score2,prob2,chId,false,(!firstIsSmall?read1:read2),first2,last2)) );
+
                                 seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-if(debug) cout<<"alignment1 score2:"<<score2<<endl;
+if(debug) cout<<"alignment1 score2:"<<score2<<" probability: "<<prob2<<endl;
                             } else {
                                 score2 = candidate2->second.second;
                                 first2 = candidate2->second.first;
                                 last2  = candidate2->first;
                             }
 
-                            if( bestScore1 + bestScore2 > score1 + score2 ){
+                            if( bestProb1 * bestProb2 <= prob1 * prob2 ){
                                 bestCh   = chId;
                                 revCompl = false;
                                 if( firstIsSmall ){
+                                    bestProb1  = prob1;
+                                    bestProb2  = prob2;
                                     bestScore1 = score1;
                                     bestScore2 = score2;
                                     bestBegin1 = first1;
@@ -625,6 +682,8 @@ if(debug) cout<<"alignment1 score2:"<<score2<<endl;
                                     bestBegin2 = first2;
                                     bestEnd2   = last2;
                                 } else {
+                                    bestProb1  = prob2;
+                                    bestProb2  = prob1;
                                     bestScore1 = score2;
                                     bestScore2 = score1;
                                     bestBegin1 = first2;
@@ -636,13 +695,8 @@ if(debug) cout<<"alignment1 score2:"<<score2<<endl;
 
                             complement++;
 
-                            if( bestScore1 + bestScore2 == 0 ) break;
-
                         } // loop over compliment
-
-                        if( bestScore1 + bestScore2 == 0 ) break;
                     } // loop over refPos in smallerList
-
                 } // if hitF1 and hitF2 exist
 
 
@@ -657,6 +711,8 @@ if(debug) cout<<"alignment1 score2:"<<score2<<endl;
                     const string &seqSmall                    = (  firstIsSmall ? reverseCompliment1: readSequence[read2]);
                     map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
                     map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
+///                    multimap<double,Match_t> &matchesBig      = ( !firstIsSmall ? matchesR1 : matchesR2 );
+///                    multimap<double,Match_t> &matchesSmall    = (  firstIsSmall ? matchesR1 : matchesR2 );
 
 if(debug) cout<<" same chromo2: "<< chId << ", nMatches: "<<smallerList.size()<<" sizeR1: "<<hitR1->second.size()<<" sizeR2: "<<hitR2->second.size()<<" shift="<<shift<<endl;
 
@@ -675,15 +731,19 @@ if(debug) cout << "complement2:" << *complement << endl;
                             size_t score1, score2;
                             size_t first1, last1;
                             size_t first2, last2;
+                            double prob1,  prob2;
 
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
                                 if( fast )
-                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, prob1);
                                 else
                                     score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
+
+///                                matchesSmall.insert( pair<double,Match_t>(1.-prob1,Match_t(score1,prob1,chId,true,(firstIsSmall?read1:read2),first1,last1)) );
+
                                 seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-if(debug) cout<<"alignment2 score1:"<<score1<<endl;
+if(debug) cout<<"alignment2 score1:"<<score1<<" probability: "<<prob1<<endl;
                             } else {
                                 score1 = candidate->second.second;
                                 first1 = candidate->second.first;
@@ -693,21 +753,26 @@ if(debug) cout<<"alignment2 score1:"<<score1<<endl;
                             map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
                                 if( fast )
-                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, prob2);
                                 else
                                     score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
+
+///                                matchesBig.insert( pair<double,Match_t>(1.-prob2,Match_t(score2,prob2,chId,true,(!firstIsSmall?read1:read2),first2,last2)) );
+
                                 seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-if(debug) cout<<"alignment2 score2:"<<score2<<endl;
+if(debug) cout<<"alignment2 score2:"<<score2<<" probability: "<<prob2<<endl;
                             } else {
                                 score2 = candidate2->second.second;
                                 first2 = candidate2->second.first;
                                 last2  = candidate2->first;
                             }
 
-                            if( bestScore1 + bestScore2 > score1 + score2 ){
+                            if( bestProb1 * bestProb2 <= prob1 * prob2 ){
                                 bestCh   = chId;
                                 revCompl = true;
                                 if( firstIsSmall ){
+                                    bestProb1  = prob1;
+                                    bestProb2  = prob2;
                                     bestScore1 = score1;
                                     bestScore2 = score2;
                                     bestBegin1 = first1;
@@ -715,6 +780,8 @@ if(debug) cout<<"alignment2 score2:"<<score2<<endl;
                                     bestBegin2 = first2;
                                     bestEnd2   = last2;
                                 } else {
+                                    bestProb1  = prob2;
+                                    bestProb2  = prob1;
                                     bestScore1 = score2;
                                     bestScore2 = score1;
                                     bestBegin1 = first2;
@@ -727,13 +794,8 @@ if(debug) cout<<"alignment2 score2:"<<score2<<endl;
 
                             complement++;
 
-                            if( bestScore1 + bestScore2 == 0 ) break;
-
                         } // loop over compliment
-
-                        if( bestScore1 + bestScore2 == 0 ) break;
                     } // loop over refPos in smallerList
-
                 } // if hitR1 and hitR2 exist
 
 
@@ -741,41 +803,70 @@ if(debug) cout<<"alignment2 score2:"<<score2<<endl;
 } // loop over shift
         } // loop over pos
 
+// if you think of returning all:
+/*
+        string output1, output2;
+        static char buffer[1024];
+        for( auto &match : matches ){
+             sprintf(buffer,"%s,%d,%lld,%lld,%c,%f",
+                        readName[match.second.read].c_str(),
+                        match.second.bestCh,
+                        match.second.bestBegin+1,
+                        match.second.bestEnd+1,
+                       (match.second.revCompl?'-':'+'),
+                        match.second.prob
+                    );
+             if( match.second.read == read1 )
+                 output1.append( buffer ).append("\n");
+             else 
+                 output2.append( buffer ).append("\n");
+        }
+
+        // strip last eol
+        output1.resize( output1.length()-1 );
+        output2.resize( output2.length()-1 );
+        retval.push_back( output1 );
+        retval.push_back( output2 );
+*/
+
         static char buffer[1024];
         if( bestScore1 + bestScore2 < 2000000 ){
-if( !revCompl ){ 
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh,bestBegin1+1,bestEnd1+1,'+',bestScore1);
-            retval.push_back( buffer );
-//if(debug) 
-cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<readSequence[read1]<<endl;
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh,bestBegin2+1,bestEnd2+1,'-', bestScore2);
-            retval.push_back( buffer );
-//if(debug) 
-cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<reverseCompliment2<<endl;
-} else {
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read1].c_str(),bestCh,bestBegin1+1,bestEnd1+1,'-',bestScore1);
-            retval.push_back( buffer );
-//if(debug) 
-cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin1,bestEnd1-bestBegin1)<<" vs. "<<reverseCompliment1<<endl;
-            sprintf(buffer,"%s,%d,%lld,%lld,%c,%ld",readName[read2].c_str(),bestCh,bestBegin2+1,bestEnd2+1,'+', bestScore2);
-            retval.push_back( buffer );
-//if(debug) 
-cout<<buffer<<" seq="<<reference[bestCh].substr(bestBegin2,bestEnd2-bestBegin2)<<" vs. "<<readSequence[read2]<<endl;
 
-}
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%f",
+                        readName[read1].c_str(),
+                        bestCh,
+                        bestBegin1+1,
+                        bestEnd1+1,
+                        (revCompl?'-':'+'),
+                        bestProb1
+            );
+            retval.push_back( buffer );
+//if(debug) 
+cout<<buffer<<endl;
+
+            sprintf(buffer,"%s,%d,%lld,%lld,%c,%f",
+                        readName[read2].c_str(),
+                        bestCh,
+                        bestBegin2+1,
+                        bestEnd2+1,
+                        (revCompl?'+':'-'),
+                        bestProb2
+            );
+            retval.push_back( buffer );
+//if(debug) 
+cout<<buffer<<endl;
+
         } else {
-            sprintf(buffer,"%s,%d,%d,%d,%c,%ld",readName[read1].c_str(),bestCh,1,2,'+', bestScore1+bestScore2);
+            sprintf(buffer,"%s,%d,%d,%d,%c,%f",readName[read1].c_str(),someCh,1,2,'+',0.);
             retval.push_back( buffer );
 //if(debug) 
 cout<<buffer<<" seq=NULL"<<endl;
-            sprintf(buffer,"%s,%d,%d,%d,%c,%ld",readName[read2].c_str(),bestCh,1,2,'-', bestScore1+bestScore2);
+            sprintf(buffer,"%s,%d,%d,%d,%c,%f",readName[read2].c_str(),someCh,1,2,'-',0.);
             retval.push_back( buffer );
 //if(debug) 
 cout<<buffer<<" seq=NULL"<<endl;
         }
 
-///clock_t end = clock() - start;
-///cout << "Time spent: " << (double)end / ((double)CLOCKS_PER_SEC) << " s" << endl;;
 
     }
     return retval;
