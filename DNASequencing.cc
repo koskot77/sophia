@@ -243,8 +243,10 @@ private:
     int someCh;
 
 public:
-    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, double &prob);
+    size_t alignFast    (size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, size_t &mismatches, size_t &indels, size_t maxMism, size_t maxIndels);
     size_t alignAccurate(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last);
+
+    double probability(size_t &mismatches, size_t &indels);
 
 public:
     int initTest(int testDifficulty){
@@ -274,7 +276,7 @@ public:
 
 int DNASequencing::passReferenceGenome(int chromatidSequenceId, const vector<string> &chromatidSequence){
     // Initialization of the 24 reference chromatides
-    someCh = chromatidSequenceId;
+    someCh = chromatidSequenceId; // when failed to align a read, report back any of the chromatid seen in this function
     reference[ chromatidSequenceId ].clear();
     if( chromatidSequenceId < 0 || chromatidSequenceId > 24 ) return -1;
     for( auto &line : chromatidSequence )
@@ -312,12 +314,13 @@ const char complement[128] = {
         'n','n','n','n','n','n','n','n'
 };
 
-size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, double &prob){
+size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last, size_t &mismatches, size_t &indels, size_t maxMism, size_t maxIndels){
     const char *ref = reference[chId].c_str();
 
-    // first move by block of width backward from the matching pattern
     size_t s = 0;
-    int    shift = 0, indels = 0, mismatches = 0;
+    int    shift = 0;
+    indels     = 0;
+    mismatches = 0;
 
     // assuming there will be no indels, beginning of the ref segment should be shifted by readPos
     if( refPos >= readPos )
@@ -326,7 +329,18 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
         s = gapCost*(readPos-refPos);
         first = 0;
     }
+    // ... and the end of the ref segment should be shifted by read.length() - readPos
+    size_t readLen = read.length();
+    size_t refLen  = reference[chId].length(); //strlen(ref);
+    if( refLen >= refPos + readLen - readPos )
+        last    = refPos + readLen - readPos;
+    else {
+        s = gapCost*(refPos + readLen - readPos - refLen);
+        last = refLen;
+    }
 
+
+    // first move by block of width backward from the matching pattern
     for(size_t relPos = width; relPos < readPos + width && relPos < refPos + shift + width; relPos += width){
 
         const char *newRead = read.c_str() + readPos - relPos;
@@ -359,6 +373,9 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
             for(size_t i=0,j=0; i<newlen; i++){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j){ shift++; indels++; } else s-=gapCost; } }
             for(size_t i=0,j=0; i<newlen; i++){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j){ shift--; indels++; } else s-=gapCost; } else { if(b[i]!=a[i] && a[i]!='-') mismatches++; } }
         }
+
+        // give up on the alignment if it exceeds the thresholds
+        if( mismatches > maxMism || indels > maxIndels ) return 100000;
     }
 
     if( int(first)+shift >= 0 )
@@ -369,17 +386,7 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
         indels += (-shift-first);
     }
 
-    // assuming there will be no indels, end of the ref segment should be shifted by read.length() - readPos
-    size_t readLen = read.length();
-    size_t refLen  = reference[chId].length(); //strlen(ref);
-    if( refLen >= refPos + readLen - readPos )
-        last    = refPos + readLen - readPos;
-    else {
-        s = gapCost*(refPos + readLen - readPos - refLen);
-        last = refLen;
-    }
-
-
+    // now move forward
     shift = 0;
     for(size_t relPos = width; relPos + readPos < readLen && relPos + refPos - shift < refLen; relPos += width){
 
@@ -413,6 +420,9 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
             for(int i=newlen-1,j=0; i>=0; i--){ if( a[i] != '-' ) j=1; if( a[i] == '-' ){ if(j){ shift++; indels++; } else s-=gapCost; } }
             for(int i=newlen-1,j=0; i>=0; i--){ if( b[i] != '-' ) j=1; if( b[i] == '-' ){ if(j){ shift--; indels++; } else s-=gapCost; } else { if(b[i]!=a[i] && a[i]!='-') mismatches++; } }
         }
+
+        // give up on the alignment if it exceeds the thresholds
+        if( mismatches > maxMism || indels > maxIndels ) return 100000;
     }
 
     if( int(last)-shift >= 0 )
@@ -423,7 +433,12 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
         indels += (shift-last);
     }
 
-// for N=150:
+    return s;
+}
+
+double DNASequencing::probability(size_t &mismatches, size_t &indels){
+    double prob = 0;
+// work for a fixed read length of len=150 only:
     static double NchooseK[len+1] = {1, 
 1.500000e+02,1.117500e+04,5.513000e+05,2.026028e+07,5.916000e+08,
 1.429700e+10,2.941097e+11,5.257211e+12,8.294711e+13,1.169554e+15,
@@ -463,7 +478,7 @@ size_t DNASequencing::alignFast(size_t chId, size_t refPos, size_t readPos, cons
     prob  = NchooseK[mismatches]*pow((1.-1./800. )*(1.-1./500. ),len-mismatches)*pow(1. - (1.-1./800. )*(1.-1./500. ),mismatches);
     prob *= NchooseK[indels]    *pow((1.-1./1000.)*(1.-1./5000.),len-indels)    *pow(1. - (1.-1./1000.)*(1.-1./5000.),indels);
 
-    return s;
+    return prob;
 }
 
 size_t DNASequencing::alignAccurate(size_t chId, size_t refPos, size_t readPos, const string &read, size_t &first, size_t &last){
@@ -507,19 +522,6 @@ size_t DNASequencing::alignAccurate(size_t chId, size_t refPos, size_t readPos, 
     return s;
 }
 
-struct Match_t {
-    size_t bestScore;
-    double prob;
-    int    bestCh;
-    bool   revCompl;
-    size_t read;
-    unsigned long long bestBegin;
-    unsigned long long bestEnd;
-    Match_t(void):bestScore(1000000),prob(0),bestCh(-1),revCompl(false),read(0),bestBegin(0),bestEnd(0){}
-    Match_t(size_t bs, double p, int bc, bool rc, size_t rd, unsigned long long bb, unsigned long long be):
-            bestScore(bs),prob(p),bestCh(bc),revCompl(rc),read(rd),bestBegin(bb),bestEnd(be){}
-};
-
 // 14:30 LX1473
 vector<string> DNASequencing::getAlignment(size_t N, double normA, double normS, const vector<string> &readName, const vector<string> &readSequence){
     vector<string> retval;
@@ -558,8 +560,8 @@ if(debug) cout<<"Read1: "<<read1<<" read2: "<<read2<<endl;
 
         // for the correct alignment found for the current k-mer, the next k-mer most likely result in the same alignment
         //  we will skip the costly alignment for the intervals that have already bee aligned earlier
-        //  the map below is association if alignment positions: end -> (begin,score)
-        map< unsigned int, pair<unsigned int,size_t> > alreadySeenF1[25], alreadySeenF2[25], alreadySeenR1[25], alreadySeenR2[25];
+        //  the map below is association if alignment positions: end -> (begin,(score,probability))
+        map< unsigned int, pair<unsigned int,pair<size_t,double> > > alreadySeenF1[25], alreadySeenF2[25], alreadySeenR1[25], alreadySeenR2[25];
 
         size_t bestScore1 = 1000000, bestScore2 = 1000000;
         double bestProb1 = 0, bestProb2 = 0;
@@ -570,13 +572,10 @@ if(debug) cout<<"Read1: "<<read1<<" read2: "<<read2<<endl;
         unsigned long long bestEnd1   = 0;
         unsigned long long bestEnd2   = 0;
 
-///        multimap<double,Match_t> matchesF1, matchesF2, matchesR1, matchesR2;
+        // let's slide along the both reads simultaneously with one unified pointer pos
+        for(unsigned long long pos=0; pos<len-width/2; pos+=width/2){
 
-        // let's slide along the both reads simultaneously
-        for(unsigned long long pos=0; pos<len; pos++){ //+=width/2){
-
-            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
-
+// ... and account for a possible relative shift between the two with another independent shift position
 for(unsigned short shift=0; shift<step && pos+shift+width<len; shift++){
 
             // get hash codes for the k-mer
@@ -586,7 +585,7 @@ for(unsigned short shift=0; shift<step && pos+shift+width<len; shift++){
             unsigned long long viewR1 = numR1.view(pos,width);
             unsigned long long viewR2 = numR2.view(pos+shift,width);
 
-            // try matching every chromatid
+            // try to match every chromatid
             for(size_t chId=0; chId<25; chId++){
 
                 if( lookUp[chId].size() == 0 ) continue;
@@ -602,74 +601,79 @@ for(unsigned short shift=0; shift<step && pos+shift+width<len; shift++){
 if(debug) cout<<"pos = "<<pos<<" viewF1 = "<<hex<<viewF1<<" viewF2 = "<<viewF2<<" viewR1 = "<<viewR1<<" viewR2 = "<<viewR2<<dec<<endl;
 
                 // while belonging to the same DNA fragment, the paired reads cannot be far away
-                // check it for the first hypothesis
+                // check it for the forward hypothesis
                 if( hitF1 != lookUp[chId].end() && hitF2 != lookUp[chId].end() ){ // both of paired reads fire some k-mers in the same chromatid?
 
-                    // found set(!) of hits belong to the same chromatid, now check if their positions are far apart
-                    bool firstIsSmall = hitF1->second.size() <= hitF2->second.size() ;
-                    const set<unsigned int> &biggerList       = ( !firstIsSmall ? hitF1->second : hitF2->second );
+                    // found set(!) of hits that belong to the same chromatid, now check if their positions are far apart
+                    bool  firstIsSmall = hitF1->second.size() <= hitF2->second.size() ;
                     const set<unsigned int> &smallerList      = (  firstIsSmall ? hitF1->second : hitF2->second );
-                    const string &seqBig                      = ( !firstIsSmall ? readSequence[read1]: reverseCompliment2);
+                    const set<unsigned int> &biggerList       = ( !firstIsSmall ? hitF1->second : hitF2->second );
                     const string &seqSmall                    = (  firstIsSmall ? readSequence[read1]: reverseCompliment2);
-                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
-                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId] );
-///                    multimap<double,Match_t> &matchesBig      = ( !firstIsSmall ? matchesF1 : matchesF2 );
-///                    multimap<double,Match_t> &matchesSmall    = (  firstIsSmall ? matchesF1 : matchesF2 );
+                    const string &seqBig                      = ( !firstIsSmall ? readSequence[read1]: reverseCompliment2);
+                    map< unsigned int, pair<unsigned int,pair<size_t,double> > > &seenSmall = ( firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId]);
+                    map< unsigned int, pair<unsigned int,pair<size_t,double> > > &seenBig   = (!firstIsSmall ? alreadySeenF1[chId] : alreadySeenF2[chId]);
 
-//                    if( smallerList.size() > 20 && bestScore1 + bestScore2 > 10000 ){ bestCh=chId; continue; } // suspiciously many hits, probably not very informative k-mer -> skip the whole case
+if(debug) cout<<" same chromo1: "<<chId<<", sizeF1: "<<hitF1->second.size()<<" sizeF2: "<<hitF2->second.size()<<" shift="<<shift<<endl;
 
-if(debug) cout<<" same chromo1: "<<chId<<", nMatches: "<<smallerList.size()<<" sizeF1: "<<hitF1->second.size()<<" sizeF2: "<<hitF2->second.size()<<" shift="<<shift<<endl;
-
+                    // always iterate over the smaller list
                     for( auto &refPos : smallerList ){
 
-if(debug) cout << "refPos1:" << refPos << endl;
+if(debug) cout << "  refPos1:" << refPos << endl;
 
                         // consider all paired alignments close by within 700 base pairs
                         set<unsigned int>::const_iterator complement = biggerList.upper_bound(int(refPos)-int(700));
                         while( complement != biggerList.end() && int(*complement)-int(refPos) < 700 ){
 
-if(debug) cout << "complement1:" << *complement << endl;
+if(debug) cout << "   complement1:" << *complement << endl;
 
                             size_t score1, score2;
                             size_t first1, last1;
                             size_t first2, last2;
                             double prob1,  prob2;
 
-                            map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
+                            // check if the beggining of the k-mer is a predecessor for end of some alignment
+                            map< unsigned int, pair<unsigned int,pair<size_t,double> > >::const_iterator candidate = seenSmall.lower_bound(refPos);
+                            //  ... and beginning of this alignment is a predecessor of this k-mer (i.e. the k-mer is in alignment we've already seen)
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
+                                size_t mismatches=0, indels=0;
                                 if( fast )
-                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, prob1);
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, mismatches, indels, 10,5);
                                 else
                                     score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
 
-///                                matchesSmall.insert( pair<double,Match_t>(1.-prob1,Match_t(score1,prob1,chId,false,(firstIsSmall?read1:read2),first1,last1)) );
+                                prob1 = ( score1<10000 ? probability(mismatches, indels) : 0);
 
-                                seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-if(debug) cout<<"alignment1 score1:"<<score1<<" probability: "<<prob1<<endl;
+                                seenSmall[last1] = pair< unsigned int, pair<size_t,double> >( first1, pair<size_t,double>(score1,prob1) );
+if(debug) cout<<"   alignment1 score1:"<<score1<<" probability: "<<prob1<<endl;
                             } else {
-                                score1 = candidate->second.second;
+                                prob1  = candidate->second.second.second;
+                                score1 = candidate->second.second.first;
                                 first1 = candidate->second.first;
                                 last1  = candidate->first;
                             }
-
-                            map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
+                            // same for the second read in the pair
+                            map< unsigned int, pair<unsigned int,pair<size_t,double> > >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
+                                size_t mismatches=0, indels=0;
                                 if( fast )
-                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, prob2);
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, mismatches, indels, 10,5);
                                 else
                                     score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
 
-///                                matchesBig.insert( pair<double,Match_t>(1.-prob2,Match_t(score2,prob2,chId,false,(!firstIsSmall?read1:read2),first2,last2)) );
+                                prob2 = ( score2<10000 ? probability(mismatches, indels) : 0);
 
-                                seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-if(debug) cout<<"alignment1 score2:"<<score2<<" probability: "<<prob2<<endl;
+                                seenBig[last2] = pair< unsigned int, pair<size_t,double> >( first2, pair<size_t,double>(score2,prob2) );
+if(debug) cout<<"   alignment1 score2:"<<score2<<" probability: "<<prob2<<endl;
                             } else {
-                                score2 = candidate2->second.second;
+                                prob2  = candidate2->second.second.second;
+                                score2 = candidate2->second.second.first;
                                 first2 = candidate2->second.first;
                                 last2  = candidate2->first;
                             }
 
-                            if( bestProb1 * bestProb2 <= prob1 * prob2 ){
+//                            if( bestProb1 * bestProb2 < prob1 * prob2 ){
+                            if( bestScore1 + bestScore2 > score1 + score2 ){
+if(debug) cout<<"   found best1: bestScore1="<<score1<<" bestScore2="<<score2<<" (sum="<<score1+score2<<") probability: prob1="<<prob1<<" prob2="<<prob2<<" (prod="<<prob1*prob2<<")"<<endl;
                                 bestCh   = chId;
                                 revCompl = false;
                                 if( firstIsSmall ){
@@ -693,14 +697,18 @@ if(debug) cout<<"alignment1 score2:"<<score2<<" probability: "<<prob2<<endl;
                                 }
                             }
 
+                            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
+
                             complement++;
 
                         } // loop over compliment
+                        if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
                     } // loop over refPos in smallerList
                 } // if hitF1 and hitF2 exist
 
+                if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
 
-                // check it for the second hypothesis
+                // check the reverse hypothesis
                 if( hitR1 != lookUp[chId].end() && hitR2 != lookUp[chId].end() ){ // both of paired reads fire some k-mers in the same chromatid?
 
                     // found set(!) of hits belong to the same chromatid, now check if their positions are far apart
@@ -709,65 +717,70 @@ if(debug) cout<<"alignment1 score2:"<<score2<<" probability: "<<prob2<<endl;
                     const set<unsigned int> &smallerList      = (  firstIsSmall ? hitR1->second : hitR2->second );
                     const string &seqBig                      = ( !firstIsSmall ? reverseCompliment1: readSequence[read2]);
                     const string &seqSmall                    = (  firstIsSmall ? reverseCompliment1: readSequence[read2]);
-                    map< unsigned int, pair<unsigned int,size_t> > &seenBig   = ( !firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
-                    map< unsigned int, pair<unsigned int,size_t> > &seenSmall = (  firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId] );
-///                    multimap<double,Match_t> &matchesBig      = ( !firstIsSmall ? matchesR1 : matchesR2 );
-///                    multimap<double,Match_t> &matchesSmall    = (  firstIsSmall ? matchesR1 : matchesR2 );
+                    map< unsigned int, pair<unsigned int,pair<size_t,double> > > &seenBig   = (!firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId]);
+                    map< unsigned int, pair<unsigned int,pair<size_t,double> > > &seenSmall = ( firstIsSmall ? alreadySeenR1[chId] : alreadySeenR2[chId]);
 
-if(debug) cout<<" same chromo2: "<< chId << ", nMatches: "<<smallerList.size()<<" sizeR1: "<<hitR1->second.size()<<" sizeR2: "<<hitR2->second.size()<<" shift="<<shift<<endl;
-
-//                    if( smallerList.size() > 20 && bestScore1 + bestScore2 > 10000 ){ bestCh=chId; continue; } // suspiciously many hits, probably not very informative k-mer -> skip the whole case
+if(debug) cout<<" same chromo2: "<< chId << " sizeR1: "<<hitR1->second.size()<<" sizeR2: "<<hitR2->second.size()<<" shift="<<shift<<endl;
 
                     for( auto &refPos : smallerList ){
 
-if(debug) cout << "refPos2:" << refPos << endl;
+if(debug) cout << "  refPos2:" << refPos << endl;
 
                         // consider all paired alignments close by within 700 base pairs
                         set<unsigned int>::const_iterator complement = biggerList.upper_bound(int(refPos)-int(700));
                         while( complement != biggerList.end() && int(*complement)-int(refPos) < 700 ){
 
-if(debug) cout << "complement2:" << *complement << endl;
+if(debug) cout << "   complement2:" << *complement << endl;
 
                             size_t score1, score2;
                             size_t first1, last1;
                             size_t first2, last2;
                             double prob1,  prob2;
 
-                            map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate = seenSmall.lower_bound(refPos);
+                            // check if the beggining of the k-mer is a predecessor for end of some alignment
+                            map< unsigned int, pair<unsigned int,pair<size_t,double> > >::const_iterator candidate = seenSmall.lower_bound(refPos);
+                            //  ... and beginning of this alignment is a predecessor of this k-mer (i.e. the k-mer is in alignment we've already seen)
                             if( candidate == seenSmall.end() || candidate->second.first > refPos ){
+                                size_t mismatches=0, indels=0;
                                 if( fast )
-                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, prob1);
+                                    score1 = alignFast(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1, mismatches, indels, 10,5);
                                 else
                                     score1 = alignAccurate(chId, refPos, pos + (firstIsSmall?0:shift), seqSmall, first1, last1);
 
-///                                matchesSmall.insert( pair<double,Match_t>(1.-prob1,Match_t(score1,prob1,chId,true,(firstIsSmall?read1:read2),first1,last1)) );
+                                prob1 = ( score1<10000 ? probability(mismatches, indels) : 0);
 
-                                seenSmall[last1] = pair<unsigned int,size_t>(first1,score1);
-if(debug) cout<<"alignment2 score1:"<<score1<<" probability: "<<prob1<<endl;
+                                seenSmall[last1] = pair< unsigned int, pair<size_t,double> >( first1, pair<size_t,double>(score1,prob1) );
+if(debug) cout<<"   alignment2 score1:"<<score1<<" probability: "<<prob1<<endl;
                             } else {
-                                score1 = candidate->second.second;
+                                prob1  = candidate->second.second.second;
+                                score1 = candidate->second.second.first;
                                 first1 = candidate->second.first;
                                 last1  = candidate->first;
                             }
-
-                            map< unsigned int, pair<unsigned int,size_t> >::const_iterator candidate2 = seenBig.lower_bound(*complement);
+                            // same for the second read in the pair
+                            map< unsigned int, pair<unsigned int,pair<size_t,double> > >::const_iterator candidate2 = seenBig.lower_bound(*complement);
                             if( candidate2 == seenBig.end() || candidate2->second.first > *complement ){
+                                size_t mismatches=0, indels=0;
                                 if( fast )
-                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, prob2);
+                                    score2 = alignFast(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2, mismatches, indels, 10,5);
                                 else
                                     score2 = alignAccurate(chId, *complement, pos + (!firstIsSmall?0:shift), seqBig, first2, last2);
 
-///                                matchesBig.insert( pair<double,Match_t>(1.-prob2,Match_t(score2,prob2,chId,true,(!firstIsSmall?read1:read2),first2,last2)) );
+                                prob2 = ( score2<10000 ? probability(mismatches, indels) : 0);
 
-                                seenBig[last2] = pair<unsigned int,size_t>(first2,score2);
-if(debug) cout<<"alignment2 score2:"<<score2<<" probability: "<<prob2<<endl;
+                                seenBig[last2] = pair< unsigned int, pair<size_t,double> >( first2, pair<size_t,double>(score2,prob2) );
+if(debug) cout<<"   alignment2 score2:"<<score2<<" probability: "<<prob2<<endl;
                             } else {
-                                score2 = candidate2->second.second;
+                                prob2  = candidate2->second.second.second;
+                                score2 = candidate2->second.second.first;
                                 first2 = candidate2->second.first;
                                 last2  = candidate2->first;
                             }
 
-                            if( bestProb1 * bestProb2 <= prob1 * prob2 ){
+//                            if( bestProb1 * bestProb2 < prob1 * prob2 ){
+                            if( bestScore1 + bestScore2 > score1 + score2 ){
+if(debug) cout<<"   found best2: bestScore1="<<score1<<" bestScore2="<<score2<<" (sum="<<score1+score2<<") probability: prob1="<<prob1<<" prob2="<<prob2<<" (prod="<<prob1*prob2<<")"<<endl;
+
                                 bestCh   = chId;
                                 revCompl = true;
                                 if( firstIsSmall ){
@@ -792,42 +805,25 @@ if(debug) cout<<"alignment2 score2:"<<score2<<" probability: "<<prob2<<endl;
 
                             }
 
+                            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
+
                             complement++;
 
                         } // loop over compliment
+                        if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
                     } // loop over refPos in smallerList
                 } // if hitR1 and hitR2 exist
-
-
+                if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
             } // loop over chId
+
+            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
 } // loop over shift
+            if( bestScore1 + bestScore2 == 0 ) break; // shortcut for the competition
+
         } // loop over pos
 
 // if you think of returning all:
-/*
-        string output1, output2;
-        static char buffer[1024];
-        for( auto &match : matches ){
-             sprintf(buffer,"%s,%d,%lld,%lld,%c,%f",
-                        readName[match.second.read].c_str(),
-                        match.second.bestCh,
-                        match.second.bestBegin+1,
-                        match.second.bestEnd+1,
-                       (match.second.revCompl?'-':'+'),
-                        match.second.prob
-                    );
-             if( match.second.read == read1 )
-                 output1.append( buffer ).append("\n");
-             else 
-                 output2.append( buffer ).append("\n");
-        }
-
-        // strip last eol
-        output1.resize( output1.length()-1 );
-        output2.resize( output2.length()-1 );
-        retval.push_back( output1 );
-        retval.push_back( output2 );
-*/
+if(debug) cout<<"   final best: bestScore1="<<bestScore1<<" bestScore2="<<bestScore2<<" (sum="<<bestScore1+bestScore2<<") probability: prob1="<<bestProb1<<" prob2="<<bestProb2<<" (prod="<<bestProb1*bestProb2<<")"<<endl;
 
         static char buffer[1024];
         if( bestScore1 + bestScore2 < 2000000 ){
